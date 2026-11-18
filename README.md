@@ -123,4 +123,5 @@ starts flat and liquidates at its end. Transaction costs are optional and
 default to zero; configure them with `transaction_cost_bps`. Summary statistics
 are reported per model, pair, and test-year fold, including compounded and
 annualized returns, annualized volatility, zero-risk-free-rate Sharpe ratio,
-maximum drawdown, exposure, turnover, and costs.
+annualized Sortino ratio (zero daily minimum acceptable return), maximum
+drawdown, exposure, turnover, and costs.

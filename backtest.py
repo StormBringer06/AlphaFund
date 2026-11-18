@@ -254,6 +254,7 @@ def summarize_backtest(daily_results: pd.DataFrame) -> pd.DataFrame:
         returns = group["strategy_return"]
         total_return = float((1.0 + returns).prod() - 1.0)
         daily_volatility = float(returns.std(ddof=1))
+        downside_deviation = float(returns.clip(upper=0.0).pow(2).mean() ** 0.5)
         annualized_return = (
             (1.0 + total_return) ** (252.0 / len(returns)) - 1.0
             if total_return > -1.0
@@ -271,6 +272,11 @@ def summarize_backtest(daily_results: pd.DataFrame) -> pd.DataFrame:
                 "sharpe_ratio": (
                     float(returns.mean() / daily_volatility * math.sqrt(252.0))
                     if daily_volatility > 0
+                    else float("nan")
+                ),
+                "sortino_ratio": (
+                    float(returns.mean() / downside_deviation * math.sqrt(252.0))
+                    if downside_deviation > 0
                     else float("nan")
                 ),
                 "max_drawdown": float(drawdown.min()),
