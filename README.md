@@ -77,3 +77,29 @@ indicate when the hedge ratio was last updated. A backtest should apply the
 weights to the following period's returns. This baseline has no entry/exit
 thresholds, volatility filter, cointegration screen, transaction costs, or
 borrow costs; those can be evaluated separately.
+
+## Walk-forward backtest
+
+`backtest.py` uses the same `fit(train_data)` / `predict(test_data)` interface
+for the baseline or another model. The default configuration tests each year
+from 2014 through 2023 using the preceding four calendar years for training,
+moving the window forward one year each fold:
+
+```powershell
+python backtest.py
+```
+
+By default, it writes `backtest_results/daily_results.csv` and
+`backtest_results/summary.csv`. To plug in another model from Python, pass its
+class as `model_factory` to `run_walk_forward_backtest`; it must fit on a
+training DataFrame and return one prediction per test date with
+`target_weight_a` and `target_weight_b` columns.
+
+Targets are close-of-day signals, so the backtest applies each target to the
+next shared trading date's pair returns. The first test-date return has no
+market exposure (but includes the opening cost if costs are enabled). Each fold
+starts flat and liquidates at its end. Transaction costs are optional and
+default to zero; configure them with `transaction_cost_bps`. Summary statistics
+are reported per model, pair, and test-year fold, including compounded and
+annualized returns, annualized volatility, zero-risk-free-rate Sharpe ratio,
+maximum drawdown, exposure, turnover, and costs.
