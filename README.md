@@ -124,3 +124,25 @@ default to zero; configure them with `transaction_cost_bps`. Summary statistics
 are reported per model, pair, and test-year fold, including compounded and
 annualized returns, annualized volatility, zero-risk-free-rate Sharpe ratio,
 maximum drawdown, exposure, turnover, and costs.
+
+## Regression pairs model with volatility regime
+
+`build_screened_dataset.py` downloads the five screened pairs and `^VIX` from
+2005 onward into `data/screened_pair_prices.csv` (pair prices, returns, and VIX)
+and `data/vix.csv`.
+
+`regression_model.py` defines `RegressionPairsTradingModel`, which fits OLS of
+the next-day spread change on the spread z-score and its interactions with VIX,
+each stock's rolling 20-day volatility, and the spread's rolling volatility.
+A heuristic `regime` (+1 / 0 / -1 for VIX below / between / above the trailing
+window's terciles) can be ignored (`regime_mode="none"`), used as a regression
+input (`"input"`), used as a position gate of 0 / 0.5 / 1 (`"gate"`), or both
+(`"both"`). Override `compute_regime` to try other regime definitions.
+
+```powershell
+python build_screened_dataset.py
+python regression_model.py --transaction-cost-bps 5
+```
+
+This runs the walk-forward backtest for the naive baseline and every regime
+mode and writes results to `backtest_results/regression/`.
