@@ -68,6 +68,72 @@ class NaivePairsTradingModelTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must match the fitted pair"):
             model.predict(wrong_pair)
 
+    def test_refits_beta_every_six_months_using_a_trailing_two_year_window(self):
+        train_dates = pd.date_range("2021-01-01", periods=1200, freq="D")
+        train_log_b = [4.0 + (index % 10) * 0.01 for index in range(1200)]
+        train_residual = [
+            0.01 if (index // 10) % 2 == 0 else -0.01
+            for index in range(1200)
+        ]
+        train = make_pair_data(train_dates, train_log_b, train_residual)
+        train["adjusted_close_a"] = [
+            math.exp(
+                0.5
+                + (2.0 if index < 400 else 1.2) * log_b
+                + residual
+            )
+            for index, (log_b, residual) in enumerate(
+                zip(train_log_b, train_residual)
+            )
+        ]
+
+        test_dates = pd.date_range(train_dates[-1] + pd.Timedelta(days=1), periods=250)
+        test_log_b = [4.0 + ((index + 1200) % 10) * 0.01 for index in range(250)]
+        test_residual = [
+            0.01 if (index // 10) % 2 == 0 else -0.01
+            for index in range(250)
+        ]
+        test = make_pair_data(test_dates, test_log_b, test_residual)
+        test["adjusted_close_a"] = [
+            math.exp(
+                0.5
+                + (1.2 if index < 90 else 2.0) * log_b
+                + residual
+            )
+            for index, (log_b, residual) in enumerate(
+                zip(test_log_b, test_residual)
+            )
+        ]
+
+        predictions = NaivePairsTradingModel().fit(train).predict(test)
+        scheduled_refit = train_dates[-1] + pd.DateOffset(months=6)
+        refit_rows = predictions[predictions["beta_refit"]]
+
+        self.assertAlmostEqual(predictions["hedge_ratio"].iloc[0], 1.2, places=2)
+        self.assertEqual(len(refit_rows), 1)
+        self.assertEqual(
+            refit_rows["date"].iloc[0],
+            test.loc[test["date"] >= scheduled_refit, "date"].iloc[0],
+        )
+        self.assertNotAlmostEqual(refit_rows["hedge_ratio"].iloc[0], 1.2, places=2)
+        self.assertEqual(
+            refit_rows["beta_refit_date"].iloc[0], refit_rows["date"].iloc[0]
+        )
+
+    def test_refits_are_consistent_when_test_data_arrives_in_chunks(self):
+        one_batch = NaivePairsTradingModel().fit(self.train).predict(self.test)
+        chunked_model = NaivePairsTradingModel().fit(self.train)
+        first_chunk = chunked_model.predict(self.test.iloc[:2])
+        second_chunk = chunked_model.predict(self.test.iloc[2:])
+        chunked = pd.concat([first_chunk, second_chunk], ignore_index=True)
+
+        pd.testing.assert_series_equal(
+            one_batch["hedge_ratio"], chunked["hedge_ratio"], check_names=False
+        )
+        pd.testing.assert_series_equal(
+            one_batch["beta_refit"], chunked["beta_refit"], check_names=False
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

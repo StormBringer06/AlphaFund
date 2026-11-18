@@ -61,16 +61,19 @@ model.fit(train)
 predictions = model.predict(test)
 ```
 
-The model fits `log(price_a) = intercept + hedge_ratio * log(price_b) + spread`
-using ordinary least squares on training data. It standardizes the residual
-spread using the training-period mean and sample standard deviation. For each
-test date, the contrarian signal is `clip(-spread_zscore / 2, -1, 1)` by
-default: it creates a position even for small nonzero divergences and reaches
-full gross exposure at an absolute z-score of 2. The signal is split between
-the legs according to the fitted hedge ratio, with gross exposure normalized
-to at most 1.
+The model initially fits `log(price_a) = intercept + hedge_ratio *
+log(price_b) + spread` using ordinary least squares on the latest two years of
+training data. Every six calendar months, it re-estimates the hedge ratio,
+intercept, and spread statistics using the prior two years of observations.
+The scheduled refit uses only prices before that prediction date; the current
+close is then scored against the updated model. For each test date, the
+contrarian signal is `clip(-spread_zscore / 2, -1, 1)` by default: it creates a
+position even for small nonzero divergences and reaches full gross exposure at
+an absolute z-score of 2. The signal is split between the legs according to
+the current hedge ratio, with gross exposure normalized to at most 1.
 
-Predicted weights are close-of-day targets and use only training-fitted
-parameters. A backtest should apply them to the following period's returns.
-This baseline has no entry/exit thresholds, volatility filter, cointegration
-screen, transaction costs, or borrow costs; those can be evaluated separately.
+Predicted weights are close-of-day targets; `beta_refit` and `beta_refit_date`
+indicate when the hedge ratio was last updated. A backtest should apply the
+weights to the following period's returns. This baseline has no entry/exit
+thresholds, volatility filter, cointegration screen, transaction costs, or
+borrow costs; those can be evaluated separately.
