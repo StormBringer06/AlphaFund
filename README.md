@@ -38,3 +38,24 @@ Pair returns are calculated between consecutive dates shared by both tickers;
 the first shared date has blank returns. Dates are not forward-filled across
 market holidays. Yahoo Finance data availability can change, so rerunning the
 script may update the dataset.
+
+## Plan
+
+Does waiting for a larger price divergence improve pairs trading returns, and does this depend on the volatility of the market?
+
+Backtest on 5 stock pairs:
+JPM, BAC
+KO, PEP
+XOM, CUX
+V, MA
+WMT, CST
+
+Quantify volatility using standardised VIX or rolling volatility
+
+Metrics: Sharpe, annualised returns, return per trade for better model, frequency/number of trades for better model, Sortino ratio, maximum drawdown to quantify downside risk
+
+Compare a naive model and a more advanced model:
+- Naive model: Trading s.t. position proportional to Z score, ignoring fees. Dynamic hedge ratio (recalculate every 6 months?) since we will be examining long time periods. This doesn’t really have an entry threshold.
+- Better model: Use an entry condition, function of Z and vol. Test with various entry thresholds. Idea: Use regime-dependent entry conditions, quantified by volatility as a piecewise function.
+- Use equivalent exit conditions for both models
+- Compare log returns of models (which are normal) using a hypothesis test: null hypothesis that means are equal, alternative hypothesis that mean of better model > mean of naive model. 5% significance level.
