@@ -38,3 +38,39 @@ Pair returns are calculated between consecutive dates shared by both tickers;
 the first shared date has blank returns. Dates are not forward-filled across
 market holidays. Yahoo Finance data availability can change, so rerunning the
 script may update the dataset.
+
+## Naive pairs-trading baseline
+
+`base_model.py` provides a per-pair `NaivePairsTradingModel`. Fit it on a
+chronological training/formation period, then call `predict` on a later test
+period:
+
+```python
+import pandas as pd
+
+from base_model import NaivePairsTradingModel
+
+data = pd.read_csv("data/pair_prices.csv", parse_dates=["date"])
+pair = data.loc[data["pair_id"] == "jpm_bac"].sort_values("date")
+split_date = pd.Timestamp("2010-01-01")
+train = pair.loc[pair["date"] < split_date]
+test = pair.loc[pair["date"] >= split_date]
+
+model = NaivePairsTradingModel(full_exposure_zscore=2.0)
+model.fit(train)
+predictions = model.predict(test)
+```
+
+The model fits `log(price_a) = intercept + hedge_ratio * log(price_b) + spread`
+using ordinary least squares on training data. It standardizes the residual
+spread using the training-period mean and sample standard deviation. For each
+test date, the contrarian signal is `clip(-spread_zscore / 2, -1, 1)` by
+default: it creates a position even for small nonzero divergences and reaches
+full gross exposure at an absolute z-score of 2. The signal is split between
+the legs according to the fitted hedge ratio, with gross exposure normalized
+to at most 1.
+
+Predicted weights are close-of-day targets and use only training-fitted
+parameters. A backtest should apply them to the following period's returns.
+This baseline has no entry/exit thresholds, volatility filter, cointegration
+screen, transaction costs, or borrow costs; those can be evaluated separately.
