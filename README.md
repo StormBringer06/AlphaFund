@@ -9,7 +9,7 @@ from Yahoo Finance with `yfinance` for these pairs:
 |---|---|
 | JPMorgan Chase / Bank of America | `JPM` / `BAC` |
 | Coca-Cola / PepsiCo | `KO` / `PEP` |
-| Barclays / Lloyds | `BARC.L` / `LLOY.L` |
+| Costco / Walmart | `COST` / `WMT` |
 | Exxon Mobil / Chevron | `XOM` / `CVX` |
 | Visa / Mastercard | `V` / `MA` |
 

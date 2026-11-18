@@ -13,7 +13,7 @@ import yfinance as yf
 PAIRS = (
     ("jpm_bac", "JPMorgan Chase / Bank of America", "JPM", "BAC"),
     ("ko_pep", "Coca-Cola / PepsiCo", "KO", "PEP"),
-    ("barc_lloy", "Barclays / Lloyds", "BARC.L", "LLOY.L"),
+    ("cost_wmt", "Costco / Walmart", "COST", "WMT"),
     ("xom_cvx", "Exxon Mobil / Chevron", "XOM", "CVX"),
     ("v_ma", "Visa / Mastercard", "V", "MA"),
 )

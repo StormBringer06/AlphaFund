@@ -40,8 +40,8 @@ class MakePairPricesTests(unittest.TestCase):
                 "BAC": [50.0, None, 55.0],
                 "KO": [60.0, 61.0, 62.0],
                 "PEP": [None, 70.0, 71.0],
-                "BARC.L": [1.0, 1.1, 1.2],
-                "LLOY.L": [2.0, 2.1, 2.2],
+                "COST": [500.0, 510.0, 520.0],
+                "WMT": [60.0, 61.0, 62.0],
                 "XOM": [100.0, 101.0, 102.0],
                 "CVX": [90.0, 91.0, 92.0],
                 "V": [200.0, 201.0, 202.0],
@@ -54,12 +54,14 @@ class MakePairPricesTests(unittest.TestCase):
         result = build_dataset.make_pair_prices(closes)
         jpm_bac = result[result["pair_id"] == "jpm_bac"].reset_index(drop=True)
         ko_pep = result[result["pair_id"] == "ko_pep"].reset_index(drop=True)
+        cost_wmt = result[result["pair_id"] == "cost_wmt"].reset_index(drop=True)
 
         self.assertEqual(list(jpm_bac["date"]), [dates[0], dates[2]])
         self.assertTrue(pd.isna(jpm_bac.loc[0, "return_a"]))
         self.assertAlmostEqual(jpm_bac.loc[1, "return_a"], 0.21)
         self.assertEqual(list(ko_pep["date"]), [dates[1], dates[2]])
         self.assertTrue(pd.isna(ko_pep.loc[0, "return_b"]))
+        self.assertEqual(list(cost_wmt["date"]), list(dates))
 
 
 if __name__ == "__main__":
