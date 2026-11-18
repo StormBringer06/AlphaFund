@@ -11,11 +11,11 @@ import yfinance as yf
 
 
 PAIRS = (
-    ("jpm_bac", "JPMorgan Chase / Bank of America", "JPM", "BAC"),
-    ("ko_pep", "Coca-Cola / PepsiCo", "KO", "PEP"),
-    ("cost_wmt", "Costco / Walmart", "COST", "WMT"),
-    ("xom_cvx", "Exxon Mobil / Chevron", "XOM", "CVX"),
-    ("v_ma", "Visa / Mastercard", "V", "MA"),
+    ("xel_wec", "Xcel Energy / WEC Energy", "XEL", "WEC"),
+    ("bac_pnc", "Bank of America / PNC Financial", "BAC", "PNC"),
+    ("all_trv", "Allstate / Travelers", "ALL", "TRV"),
+    ("tfc_usb", "Truist Financial / U.S. Bancorp", "TFC", "USB"),
+    ("hd_low", "Home Depot / Lowe's", "HD", "LOW"),
 )
 TICKERS = tuple(dict.fromkeys(ticker for _, _, a, b in PAIRS for ticker in (a, b)))
 

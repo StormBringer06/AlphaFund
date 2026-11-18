@@ -7,11 +7,11 @@ from Yahoo Finance with `yfinance` for these pairs:
 
 | Pair | Yahoo Finance tickers |
 |---|---|
-| JPMorgan Chase / Bank of America | `JPM` / `BAC` |
-| Coca-Cola / PepsiCo | `KO` / `PEP` |
-| Costco / Walmart | `COST` / `WMT` |
-| Exxon Mobil / Chevron | `XOM` / `CVX` |
-| Visa / Mastercard | `V` / `MA` |
+| Xcel Energy / WEC Energy | `XEL` / `WEC` |
+| Bank of America / PNC Financial | `BAC` / `PNC` |
+| Allstate / Travelers | `ALL` / `TRV` |
+| Truist Financial / U.S. Bancorp | `TFC` / `USB` |
+| Home Depot / Lowe's | `HD` / `LOW` |
 
 Install the requirements and run the builder from the repository root:
 
@@ -72,7 +72,7 @@ import pandas as pd
 from base_model import NaivePairsTradingModel
 
 data = pd.read_csv("data/pair_prices.csv", parse_dates=["date"])
-pair = data.loc[data["pair_id"] == "jpm_bac"].sort_values("date")
+pair = data.loc[data["pair_id"] == "xel_wec"].sort_values("date")
 split_date = pd.Timestamp("2010-01-01")
 train = pair.loc[pair["date"] < split_date]
 test = pair.loc[pair["date"] >= split_date]
