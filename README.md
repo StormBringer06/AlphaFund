@@ -39,6 +39,27 @@ the first shared date has blank returns. Dates are not forward-filled across
 market holidays. Yahoo Finance data availability can change, so rerunning the
 script may update the dataset.
 
+## Screened pairs
+
+`screen_pairs.py` screens same-sector US large caps over the last 10 years for
+cointegration, a stable positive hedge ratio, and a tradable half-life. It
+selected:
+
+| Pair | Sector | Yahoo Finance tickers |
+|---|---|---|
+| Xcel Energy / WEC Energy | Utilities | `XEL` / `WEC` |
+| Bank of America / PNC Financial | Banks | `BAC` / `PNC` |
+| Allstate / Travelers | Insurance | `ALL` / `TRV` |
+| Truist Financial / U.S. Bancorp | Banks | `TFC` / `USB` |
+| Home Depot / Lowe's | Retail | `HD` / `LOW` |
+
+```powershell
+python screen_pairs.py
+```
+
+Results are written to `data/pair_screen.csv`. Pairs are chosen in-sample, so
+use `--end` to screen an earlier period before backtesting later years.
+
 ## Naive pairs-trading baseline
 
 `base_model.py` provides a per-pair `NaivePairsTradingModel`. Fit it on a
