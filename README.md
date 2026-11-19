@@ -243,3 +243,27 @@ Each run compares `naive_zscore`, `naive_ewma_z` (EWMA z-score only) and
 comparison, plus `robustness_*.csv` (Sharpe excluding 2020 and 2022, return at
 the naive model's volatility, and a bootstrap of the Sharpe gap to naive that
 resamples whole years) and `selected_parameters_*.csv`.
+
+## Entry-state model
+
+`improved_models/entry_state_model.py` defines `EntryStatePairsTradingModel`.
+It uses the same EWMA z-score but sizes each trade once, when it opens:
+
+- A trade opens when `|z| > 1` and closes when z crosses zero.
+- At entry, the trade is *favourable* if VIX is above the 75th percentile of
+  its trailing 2-year range, or if the spread's 20-day volatility of daily
+  changes exceeds 1.3 times its 120-day volatility. Otherwise it is *calm
+  drift*.
+- Favourable trades use full naive sizing (`-z / 2`). Calm-drift trades are
+  multiplied by `calm_size`. With `allow_upgrade`, a calm-drift trade moves to
+  full size if conditions become favourable while it is open.
+- Execution uses a 0.2 no-trade band.
+
+All thresholds are fixed, not fitted.
+
+```powershell
+python -m improved_models.entry_state_model --transaction-cost-bps 5
+```
+
+This runs the point-in-time comparison against the naive model and an EWMA z
+plus band baseline, writing results to `backtest_results/entry_state/`.
