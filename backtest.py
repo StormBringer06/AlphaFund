@@ -139,9 +139,12 @@ def run_walk_forward_backtest(
                     predictions["date"], errors="coerce"
                 )
             _validate_predictions(predictions, test, pair_id, fold)
-            forecast = predictions[
-                ["date", *_TARGET_COLUMNS]
-            ].copy()
+            forecast_columns = [
+                column
+                for column in predictions.columns
+                if column == "date" or column not in test.columns
+            ]
+            forecast = predictions[forecast_columns].copy()
             results = test.merge(
                 forecast,
                 on="date",

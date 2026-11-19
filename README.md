@@ -131,9 +131,10 @@ maximum drawdown, exposure, turnover, and costs.
 2005 onward into `data/screened_pair_prices.csv` (pair prices, returns, and VIX)
 and `data/vix.csv`.
 
-`regression_model.py` defines `RegressionPairsTradingModel`, which fits OLS of
-the next-day spread change on the spread z-score and its interactions with VIX,
-each stock's rolling 20-day volatility, and the spread's rolling volatility.
+`improved_models/regression_model.py` defines `RegressionPairsTradingModel`,
+which fits OLS of the next-day spread change on the spread z-score and its
+interactions with VIX, each stock's rolling 20-day volatility, and the spread's
+rolling volatility.
 A heuristic `regime` (+1 / 0 / -1 for VIX below / between / above the trailing
 window's terciles) can be ignored (`regime_mode="none"`), used as a regression
 input (`"input"`), used as a position gate of 0 / 0.5 / 1 (`"gate"`), or both
@@ -141,8 +142,104 @@ input (`"input"`), used as a position gate of 0 / 0.5 / 1 (`"gate"`), or both
 
 ```powershell
 python build_screened_dataset.py
-python regression_model.py --transaction-cost-bps 5
+python -m improved_models.regression_model --transaction-cost-bps 5
 ```
 
 This runs the walk-forward backtest for the naive baseline and every regime
 mode and writes results to `backtest_results/regression/`.
+
+## Sharpe-optimized dynamic-threshold model
+
+`improved_models/dynamic_threshold_model.py` defines
+`SharpeOptimizedThresholdModel`. For each training fold it fits linear entry
+and exit threshold surfaces using standardized VIX and pair-volatility
+features. Differential evolution selects the threshold coefficients that
+maximize training-period net Sharpe (including the configured transaction
+cost). At each test timestamp those surfaces produce dynamic z-score
+thresholds. Entries fade the spread, and an active position scales with
+divergence until reaching the configured gross exposure cap; it exits when the
+spread returns within the exit threshold or crosses its mean. The hedge ratio
+and rolling spread features continue to update every six months.
+
+The default per-pair exposure cap is 1.0 gross, and full size is reached at an
+absolute z-score of 3.0. Run the same 2014–2023 walk-forward on screened-pair
+data with:
+
+```powershell
+python -m improved_models.dynamic_threshold_model --transaction-cost-bps 5
+```
+
+Outputs, including daily predicted thresholds and entry/exit diagnostics, are
+written to `backtest_results/dynamic_threshold/`. The exposure cap applies to
+each pair individually; portfolio-wide allocation is handled outside this
+model.
+
+## Regime regression with EWMA z-score
+
+`improved_models/regime_regression_model.py` defines
+`RegimeRegressionPairsTradingModel`, a subclass of the regression model with:
+
+- **EWMA z-score**: `z_t = (spread_t - m_{t-1}) / s_{t-1}`, using an
+  exponentially weighted mean and std of the spread (`zscore_halflife`, default
+  120 trading days), lagged one day. The static window statistics gave test
+  z-scores with std ~1.9 and a persistent bias; the EWMA version is ~1.05.
+  `zscore_method="static"` restores the old behaviour.
+- **Regimes as linear inputs only** (no gating): the VIX tercile `regime`
+  (+1 / 0 / -1) and a `vix_extreme` state (+1 below the 10th / -1 above the
+  90th percentile of the estimation window), each entered as a level term and
+  an interaction with z. `use_extreme_regime=False` drops the extreme state.
+
+```powershell
+python -m improved_models.regime_regression_model --transaction-cost-bps 5
+```
+
+This compares the naive baseline, the original `lr_regime_input` model, the
+new model and two ablations, writing results to
+`backtest_results/regime_regression/`.
+
+## Point-in-time pair selection
+
+The screened pairs above were chosen with data overlapping the backtest.
+`build_point_in_time_dataset.py` removes that look-ahead: for each test year it
+runs the same screen on the ten years before that year and keeps the top five
+pairs, using a cached download of the whole universe plus VIX.
+
+```powershell
+python build_point_in_time_dataset.py
+```
+
+It writes `data/universe_closes.csv` (cache), `data/pit_pair_selection.csv`
+(pairs per test year) and `data/pit_pair_prices.csv` (prices for every pair
+selected in any year). The candidate universe is still today's large caps, so
+survivorship bias is reduced, not removed.
+
+## Vol-scaled naive model
+
+`improved_models/vol_scaled_naive_model.py` defines
+`VolScaledNaivePairsTradingModel`, which keeps the naive sizing rule and adds:
+
+1. **EWMA z-score**: `z = (spread - EWMA mean) / EWMA std`, with a 120-day
+   half-life and statistics lagged one day.
+2. **Naive sizing**: `clip(-z / 2, -1, 1)`.
+3. **VIX size overlay**: the position is multiplied by
+   `clip(1 + 2 * vix_scale * (vix_pct - 0.5), 0.5, 1.5)`, where `vix_pct` is
+   VIX's percentile in the trailing 504 days. Gross exposure is capped at 1.
+4. **No-trade band that depends on VIX**: the position only moves to the new
+   target when the gap exceeds
+   `band * clip(1 + 2 * band_vix_scale * (0.5 - vix_pct), 0, 2)`. The band is
+   wider when VIX is low and narrower when it is high.
+
+`vix_scale`, `band` and `band_vix_scale` are chosen separately for each test
+year by a grid search on an inner walk-forward over the last two training
+years, maximizing the net Sharpe of the portfolio of all pairs.
+
+```powershell
+python -m improved_models.vol_scaled_naive_model --transaction-cost-bps 5
+python -m improved_models.vol_scaled_naive_model --input data/screened_pair_prices.csv --selection none --output-dir backtest_results/vol_scaled_naive/original_pairs
+```
+
+Each run compares `naive_zscore`, `naive_ewma_z` (EWMA z-score only) and
+`vol_scaled_naive`. It writes daily results, summaries and the portfolio
+comparison, plus `robustness_*.csv` (Sharpe excluding 2020 and 2022, return at
+the naive model's volatility, and a bootstrap of the Sharpe gap to naive that
+resamples whole years) and `selected_parameters_*.csv`.

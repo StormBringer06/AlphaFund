@@ -19,6 +19,7 @@ class ConstantWeightModel:
         predictions = test_data.copy()
         predictions["target_weight_a"] = 0.5
         predictions["target_weight_b"] = -0.5
+        predictions["diagnostic"] = 1.0
         return predictions
 
 
@@ -84,6 +85,7 @@ class WalkForwardBacktestTests(unittest.TestCase):
 
         self.assertEqual(len(daily), len(test_dates))
         self.assertEqual(set(daily["model_name"]), {"constant"})
+        self.assertTrue((daily["diagnostic"] == 1.0).all())
         self.assertEqual(daily["position_weight_a"].iloc[0], 0.0)
         self.assertAlmostEqual(daily["strategy_return"].iloc[1], 0.00075)
         self.assertEqual(len(summary), 1)

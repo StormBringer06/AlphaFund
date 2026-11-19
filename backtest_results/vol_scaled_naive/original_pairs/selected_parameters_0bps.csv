@@ -1,0 +1,11 @@
+test_year,vix_scale,band,band_vix_scale,pairs
+2014,0.0,0.0,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2015,0.0,0.0,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2016,0.25,0.2,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2017,0.25,0.2,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2018,0.25,0.3,0.5,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2019,0.5,0.4,0.5,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2020,0.5,0.2,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2021,0.0,0.4,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2022,0.0,0.4,0.0,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"
+2023,0.0,0.3,0.5,"xel_wec,bac_pnc,all_trv,tfc_usb,hd_low"

@@ -29,10 +29,17 @@ SCREENED_PAIRS = (
 VIX_TICKER = "^VIX"
 
 
-def make_pair_prices(closes: pd.DataFrame, vix: pd.Series) -> pd.DataFrame:
-    """Pair-aligned prices/returns with VIX; dates without a VIX close are dropped."""
+def make_pair_prices(
+    closes: pd.DataFrame,
+    vix: pd.Series,
+    pairs: tuple[tuple[str, str, str, str], ...] = SCREENED_PAIRS,
+) -> pd.DataFrame:
+    """Pair-aligned prices/returns with VIX; dates without a VIX close are dropped.
+
+    ``pairs`` holds ``(pair_id, pair_name, ticker_a, ticker_b)`` tuples.
+    """
     frames: list[pd.DataFrame] = []
-    for pair_id, pair_name, ticker_a, ticker_b in SCREENED_PAIRS:
+    for pair_id, pair_name, ticker_a, ticker_b in pairs:
         pair = pd.DataFrame(
             {
                 "adjusted_close_a": closes[ticker_a],

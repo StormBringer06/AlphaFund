@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 
 from backtest import run_walk_forward_backtest
-from regression_model import RegressionPairsTradingModel
+from improved_models.dynamic_threshold_model import SharpeOptimizedThresholdModel
+from improved_models.regression_model import RegressionPairsTradingModel
 
 
 def make_data(start="2015-01-01", days=1600, seed=0) -> pd.DataFrame:
@@ -93,6 +94,71 @@ class RegressionPairsTradingModelTests(unittest.TestCase):
         )
         self.assertEqual(set(daily["test_year"]), {2019, 2020})
         self.assertTrue(np.isfinite(daily["strategy_return"]).all())
+
+
+class SharpeOptimizedThresholdModelTests(unittest.TestCase):
+    def test_thresholds_are_dynamic_and_exit_stays_below_entry(self):
+        design = np.array([[1.0, -1.0, 0.0], [1.0, 1.0, 1.0]])
+        coefficients = np.array([2.0, 0.3, 0.2, 0.5, 0.0, 0.0])
+
+        entry, exit_threshold = (
+            SharpeOptimizedThresholdModel._predict_thresholds(
+                design, coefficients
+            )
+        )
+
+        self.assertNotEqual(entry[0], entry[1])
+        self.assertTrue((entry >= 0.5).all())
+        self.assertTrue((entry <= 2.75).all())
+        self.assertTrue((exit_threshold >= 0.0).all())
+        self.assertTrue((exit_threshold < entry).all())
+
+    def test_positions_scale_with_divergence_and_exit_on_reversion(self):
+        model = SharpeOptimizedThresholdModel(max_gross_exposure=1.0)
+        target_a, target_b, entries, exits = model._make_targets(
+            zscore=np.array([2.0, 2.5, 1.5, 0.4, -2.5]),
+            entry=np.full(5, 2.0),
+            exit_threshold=np.full(5, 0.5),
+            hedge_ratio=1.0,
+            initial_side=0,
+        )
+        gross = np.abs(target_a) + np.abs(target_b)
+
+        np.testing.assert_allclose(gross, [0.6, 0.8, 0.4, 0.0, 0.8])
+        np.testing.assert_array_equal(entries, [True, False, False, False, True])
+        np.testing.assert_array_equal(exits, [False, False, False, True, False])
+        self.assertLess(target_a[0], 0.0)
+        self.assertGreater(target_a[-1], 0.0)
+        np.testing.assert_allclose(target_b, -target_a)
+
+    def test_fits_and_predicts_dynamic_thresholds(self):
+        data = make_data()
+        train = data[data["date"] < "2018-01-01"]
+        test = data[data["date"] >= "2018-01-01"]
+        model = SharpeOptimizedThresholdModel(
+            lookback_years=1,
+            min_train_observations=60,
+            optimizer_maxiter=1,
+            optimizer_popsize=4,
+        ).fit(train)
+
+        predictions = model.predict(test)
+
+        self.assertEqual(len(predictions), len(test))
+        self.assertTrue(
+            {
+                "entry_z_threshold",
+                "exit_z_threshold",
+                "trade_entry",
+                "trade_exit",
+                "target_gross_exposure",
+            }.issubset(predictions.columns)
+        )
+        self.assertTrue(
+            (predictions["exit_z_threshold"] < predictions["entry_z_threshold"]).all()
+        )
+        self.assertTrue((predictions["target_gross_exposure"] <= 1.0 + 1e-12).all())
+        self.assertTrue(np.isfinite(model._threshold_fit_sharpe))
 
 
 if __name__ == "__main__":
