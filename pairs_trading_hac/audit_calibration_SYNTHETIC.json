@@ -1,0 +1,720 @@
+{
+  "synthetic_only": true,
+  "seed": 4562026,
+  "nobs": 2520,
+  "dgp": {
+    "iid_t7": "0.001 times Student-t(7)",
+    "ar03_t7": "AR(1) rho=0.3, iid_t7 innovations; 500-step burn-in",
+    "ten_annual_effects_plus_ar03_t7": "ar03_t7 plus ten iid N(0,0.0005^2) effects, each repeated for 252 days"
+  },
+  "interpretation": "Toy-DGP calibration diagnostic, not actual strategy evidence. Every mean is zero in the population. No fixed-b correction. Intervals describe Monte Carlo sampling uncertainty only.",
+  "results": [
+    {
+      "scenario": "iid_t7",
+      "maxlags": 8,
+      "alpha": 0.05,
+      "rejections": 45,
+      "replications": 1000,
+      "rejection_rate": 0.045,
+      "monte_carlo_wilson_95_interval": [
+        0.03379951228563171,
+        0.059682837936223455
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 8,
+      "alpha": 0.025,
+      "rejections": 22,
+      "replications": 1000,
+      "rejection_rate": 0.022,
+      "monte_carlo_wilson_95_interval": [
+        0.014572707764791061,
+        0.03308567334739964
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 8,
+      "alpha": 0.01,
+      "rejections": 6,
+      "replications": 1000,
+      "rejection_rate": 0.006,
+      "monte_carlo_wilson_95_interval": [
+        0.0027526691418763736,
+        0.013028168241852087
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 8,
+      "alpha": 0.005,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 8,
+      "alpha": 0.001,
+      "rejections": 0,
+      "replications": 1000,
+      "rejection_rate": 0.0,
+      "monte_carlo_wilson_95_interval": [
+        0.0,
+        0.0038267584855551234
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 63,
+      "alpha": 0.05,
+      "rejections": 49,
+      "replications": 1000,
+      "rejection_rate": 0.049,
+      "monte_carlo_wilson_95_interval": [
+        0.03726103464736061,
+        0.06419070150661012
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 63,
+      "alpha": 0.025,
+      "rejections": 23,
+      "replications": 1000,
+      "rejection_rate": 0.023,
+      "monte_carlo_wilson_95_interval": [
+        0.015374276932992922,
+        0.034276450662226676
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 63,
+      "alpha": 0.01,
+      "rejections": 7,
+      "replications": 1000,
+      "rejection_rate": 0.007,
+      "monte_carlo_wilson_95_interval": [
+        0.0033948684009907646,
+        0.014378315465766588
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 63,
+      "alpha": 0.005,
+      "rejections": 2,
+      "replications": 1000,
+      "rejection_rate": 0.002,
+      "monte_carlo_wilson_95_interval": [
+        0.0005486435881207272,
+        0.007262807863492176
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 63,
+      "alpha": 0.001,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 252,
+      "alpha": 0.05,
+      "rejections": 57,
+      "replications": 1000,
+      "rejection_rate": 0.057,
+      "monte_carlo_wilson_95_interval": [
+        0.04425344035871594,
+        0.07313706765948591
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 252,
+      "alpha": 0.025,
+      "rejections": 32,
+      "replications": 1000,
+      "rejection_rate": 0.032,
+      "monte_carlo_wilson_95_interval": [
+        0.022757107858710955,
+        0.04482473808376864
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 252,
+      "alpha": 0.01,
+      "rejections": 17,
+      "replications": 1000,
+      "rejection_rate": 0.017,
+      "monte_carlo_wilson_95_interval": [
+        0.01064068985681633,
+        0.027055958840229925
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 252,
+      "alpha": 0.005,
+      "rejections": 11,
+      "replications": 1000,
+      "rejection_rate": 0.011,
+      "monte_carlo_wilson_95_interval": [
+        0.006153174098086639,
+        0.019589395700786272
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "maxlags": 252,
+      "alpha": 0.001,
+      "rejections": 4,
+      "replications": 1000,
+      "rejection_rate": 0.004,
+      "monte_carlo_wilson_95_interval": [
+        0.00155658814040843,
+        0.010239556277262252
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.05,
+      "rejections": 54,
+      "replications": 1000,
+      "rejection_rate": 0.054,
+      "monte_carlo_wilson_95_interval": [
+        0.04162131372306273,
+        0.06979215484605245
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.025,
+      "rejections": 24,
+      "replications": 1000,
+      "rejection_rate": 0.024,
+      "monte_carlo_wilson_95_interval": [
+        0.016180168466636995,
+        0.03546290561161149
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.01,
+      "rejections": 7,
+      "replications": 1000,
+      "rejection_rate": 0.007,
+      "monte_carlo_wilson_95_interval": [
+        0.0033948684009907646,
+        0.014378315465766588
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.005,
+      "rejections": 3,
+      "replications": 1000,
+      "rejection_rate": 0.003,
+      "monte_carlo_wilson_95_interval": [
+        0.0010207838811386186,
+        0.008783014053503173
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.001,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.05,
+      "rejections": 52,
+      "replications": 1000,
+      "rejection_rate": 0.052,
+      "monte_carlo_wilson_95_interval": [
+        0.03987303628377742,
+        0.06755573931927998
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.025,
+      "rejections": 25,
+      "replications": 1000,
+      "rejection_rate": 0.025,
+      "monte_carlo_wilson_95_interval": [
+        0.016990131293434067,
+        0.0366452892678433
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.01,
+      "rejections": 8,
+      "replications": 1000,
+      "rejection_rate": 0.008,
+      "monte_carlo_wilson_95_interval": [
+        0.004059195818806101,
+        0.01570633453098014
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.005,
+      "rejections": 3,
+      "replications": 1000,
+      "rejection_rate": 0.003,
+      "monte_carlo_wilson_95_interval": [
+        0.0010207838811386186,
+        0.008783014053503173
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.001,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.05,
+      "rejections": 57,
+      "replications": 1000,
+      "rejection_rate": 0.057,
+      "monte_carlo_wilson_95_interval": [
+        0.04425344035871594,
+        0.07313706765948591
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.025,
+      "rejections": 32,
+      "replications": 1000,
+      "rejection_rate": 0.032,
+      "monte_carlo_wilson_95_interval": [
+        0.022757107858710955,
+        0.04482473808376864
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.01,
+      "rejections": 17,
+      "replications": 1000,
+      "rejection_rate": 0.017,
+      "monte_carlo_wilson_95_interval": [
+        0.01064068985681633,
+        0.027055958840229925
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.005,
+      "rejections": 11,
+      "replications": 1000,
+      "rejection_rate": 0.011,
+      "monte_carlo_wilson_95_interval": [
+        0.006153174098086639,
+        0.019589395700786272
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.001,
+      "rejections": 4,
+      "replications": 1000,
+      "rejection_rate": 0.004,
+      "monte_carlo_wilson_95_interval": [
+        0.00155658814040843,
+        0.010239556277262252
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.05,
+      "rejections": 343,
+      "replications": 1000,
+      "rejection_rate": 0.343,
+      "monte_carlo_wilson_95_interval": [
+        0.3142286235426158,
+        0.3729729786218485
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.025,
+      "rejections": 308,
+      "replications": 1000,
+      "rejection_rate": 0.308,
+      "monte_carlo_wilson_95_interval": [
+        0.28016622636313016,
+        0.33730324889532304
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.01,
+      "rejections": 275,
+      "replications": 1000,
+      "rejection_rate": 0.275,
+      "monte_carlo_wilson_95_interval": [
+        0.24822587402252644,
+        0.30349616729597334
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.005,
+      "rejections": 256,
+      "replications": 1000,
+      "rejection_rate": 0.256,
+      "monte_carlo_wilson_95_interval": [
+        0.22992018472379963,
+        0.2839472734171513
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 8,
+      "alpha": 0.001,
+      "rejections": 228,
+      "replications": 1000,
+      "rejection_rate": 0.228,
+      "monte_carlo_wilson_95_interval": [
+        0.20306677294819991,
+        0.25501498366794206
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.05,
+      "rejections": 231,
+      "replications": 1000,
+      "rejection_rate": 0.231,
+      "monte_carlo_wilson_95_interval": [
+        0.20593646391387105,
+        0.2581223321513576
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.025,
+      "rejections": 194,
+      "replications": 1000,
+      "rejection_rate": 0.194,
+      "monte_carlo_wilson_95_interval": [
+        0.1706814295673276,
+        0.21966054662583215
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.01,
+      "rejections": 148,
+      "replications": 1000,
+      "rejection_rate": 0.148,
+      "monte_carlo_wilson_95_interval": [
+        0.1273389886764658,
+        0.17135504929736503
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.005,
+      "rejections": 128,
+      "replications": 1000,
+      "rejection_rate": 0.128,
+      "monte_carlo_wilson_95_interval": [
+        0.10870752216300936,
+        0.15013958615024367
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 63,
+      "alpha": 0.001,
+      "rejections": 88,
+      "replications": 1000,
+      "rejection_rate": 0.088,
+      "monte_carlo_wilson_95_interval": [
+        0.07198099794232085,
+        0.10717225104977657
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.05,
+      "rejections": 128,
+      "replications": 1000,
+      "rejection_rate": 0.128,
+      "monte_carlo_wilson_95_interval": [
+        0.10870752216300936,
+        0.15013958615024367
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.025,
+      "rejections": 92,
+      "replications": 1000,
+      "rejection_rate": 0.092,
+      "monte_carlo_wilson_95_interval": [
+        0.07561389956796888,
+        0.11150873535624412
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.01,
+      "rejections": 66,
+      "replications": 1000,
+      "rejection_rate": 0.066,
+      "monte_carlo_wilson_95_interval": [
+        0.05221235045948584,
+        0.08310927590597601
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.005,
+      "rejections": 50,
+      "replications": 1000,
+      "rejection_rate": 0.05,
+      "monte_carlo_wilson_95_interval": [
+        0.03813026239274881,
+        0.06531382024425081
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "maxlags": 252,
+      "alpha": 0.001,
+      "rejections": 30,
+      "replications": 1000,
+      "rejection_rate": 0.03,
+      "monte_carlo_wilson_95_interval": [
+        0.021093738828834696,
+        0.042503414147587126
+      ]
+    }
+  ],
+  "annual_grouped_results": [
+    {
+      "scenario": "iid_t7",
+      "alpha": 0.05,
+      "rejections": 38,
+      "replications": 1000,
+      "rejection_rate": 0.038,
+      "monte_carlo_wilson_95_interval": [
+        0.027809004509302633,
+        0.05172692033135031
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "alpha": 0.025,
+      "rejections": 16,
+      "replications": 1000,
+      "rejection_rate": 0.016,
+      "monte_carlo_wilson_95_interval": [
+        0.009872242002277388,
+        0.02583206021173997
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "alpha": 0.01,
+      "rejections": 7,
+      "replications": 1000,
+      "rejection_rate": 0.007,
+      "monte_carlo_wilson_95_interval": [
+        0.0033948684009907646,
+        0.014378315465766588
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "alpha": 0.005,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    },
+    {
+      "scenario": "iid_t7",
+      "alpha": 0.001,
+      "rejections": 0,
+      "replications": 1000,
+      "rejection_rate": 0.0,
+      "monte_carlo_wilson_95_interval": [
+        0.0,
+        0.0038267584855551234
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "alpha": 0.05,
+      "rejections": 40,
+      "replications": 1000,
+      "rejection_rate": 0.04,
+      "monte_carlo_wilson_95_interval": [
+        0.02951097368545276,
+        0.05400964412125796
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "alpha": 0.025,
+      "rejections": 18,
+      "replications": 1000,
+      "rejection_rate": 0.018,
+      "monte_carlo_wilson_95_interval": [
+        0.011415740009567792,
+        0.02827325517050735
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "alpha": 0.01,
+      "rejections": 6,
+      "replications": 1000,
+      "rejection_rate": 0.006,
+      "monte_carlo_wilson_95_interval": [
+        0.0027526691418763736,
+        0.013028168241852087
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "alpha": 0.005,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    },
+    {
+      "scenario": "ar03_t7",
+      "alpha": 0.001,
+      "rejections": 0,
+      "replications": 1000,
+      "rejection_rate": 0.0,
+      "monte_carlo_wilson_95_interval": [
+        0.0,
+        0.0038267584855551234
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "alpha": 0.05,
+      "rejections": 64,
+      "replications": 1000,
+      "rejection_rate": 0.064,
+      "monte_carlo_wilson_95_interval": [
+        0.05043620089822954,
+        0.08090073250117455
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "alpha": 0.025,
+      "rejections": 32,
+      "replications": 1000,
+      "rejection_rate": 0.032,
+      "monte_carlo_wilson_95_interval": [
+        0.022757107858710955,
+        0.04482473808376864
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "alpha": 0.01,
+      "rejections": 15,
+      "replications": 1000,
+      "rejection_rate": 0.015,
+      "monte_carlo_wilson_95_interval": [
+        0.009110978804081673,
+        0.024600976926906798
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "alpha": 0.005,
+      "rejections": 5,
+      "replications": 1000,
+      "rejection_rate": 0.005,
+      "monte_carlo_wilson_95_interval": [
+        0.0021375355273244604,
+        0.011650955373375113
+      ]
+    },
+    {
+      "scenario": "ten_annual_effects_plus_ar03_t7",
+      "alpha": 0.001,
+      "rejections": 1,
+      "replications": 1000,
+      "rejection_rate": 0.001,
+      "monte_carlo_wilson_95_interval": [
+        0.00017654637062607809,
+        0.0056425585979579355
+      ]
+    }
+  ]
+}
