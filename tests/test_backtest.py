@@ -19,6 +19,7 @@ class ConstantWeightModel:
         predictions = test_data.copy()
         predictions["target_weight_a"] = 0.5
         predictions["target_weight_b"] = -0.5
+        predictions["diagnostic"] = 1.0
         return predictions
 
 
@@ -84,30 +85,11 @@ class WalkForwardBacktestTests(unittest.TestCase):
 
         self.assertEqual(len(daily), len(test_dates))
         self.assertEqual(set(daily["model_name"]), {"constant"})
+        self.assertTrue((daily["diagnostic"] == 1.0).all())
         self.assertEqual(daily["position_weight_a"].iloc[0], 0.0)
         self.assertAlmostEqual(daily["strategy_return"].iloc[1], 0.00075)
         self.assertEqual(len(summary), 1)
         self.assertEqual(summary.loc[0, "test_year"], 2014)
-
-    def test_summary_calculates_annualized_sortino_against_zero_target(self):
-        daily = pd.DataFrame(
-            {
-                "model_name": "test",
-                "pair_id": "test_pair",
-                "fold_id": 1,
-                "test_year": 2024,
-                "strategy_return": [-0.02, 0.04, -0.01, 0.03],
-                "position_gross_exposure": 0.5,
-                "turnover": 0.1,
-                "transaction_cost": 0.0,
-            }
-        )
-
-        summary = summarize_backtest(daily)
-        expected_downside_deviation = ((0.02**2 + 0.01**2) / 4) ** 0.5
-        expected_sortino = 0.01 / expected_downside_deviation * (252**0.5)
-
-        self.assertAlmostEqual(summary.loc[0, "sortino_ratio"], expected_sortino)
 
 
 if __name__ == "__main__":

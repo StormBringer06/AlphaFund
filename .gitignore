@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+# large per-day outputs; summaries, yearly returns and exit decisions are kept
+results/daily_*.csv

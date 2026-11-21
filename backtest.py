@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 import math
-from pathlib import Path
 from typing import Callable, Protocol
 
 import pandas as pd
-
-from base_model import NaivePairsTradingModel
 
 
 _REQUIRED_DATA_COLUMNS = {
@@ -103,7 +99,9 @@ def run_walk_forward_backtest(
         test_years=test_years,
         step_years=step_years,
     )
-    factory = model_factory or NaivePairsTradingModel
+    if model_factory is None:
+        raise ValueError("model_factory is required.")
+    factory = model_factory
     result_frames: list[pd.DataFrame] = []
 
     for pair_id, pair in pair_prices.groupby("pair_id", sort=True):
@@ -139,9 +137,12 @@ def run_walk_forward_backtest(
                     predictions["date"], errors="coerce"
                 )
             _validate_predictions(predictions, test, pair_id, fold)
-            forecast = predictions[
-                ["date", *_TARGET_COLUMNS]
-            ].copy()
+            forecast_columns = [
+                column
+                for column in predictions.columns
+                if column == "date" or column not in test.columns
+            ]
+            forecast = predictions[forecast_columns].copy()
             results = test.merge(
                 forecast,
                 on="date",
@@ -254,7 +255,6 @@ def summarize_backtest(daily_results: pd.DataFrame) -> pd.DataFrame:
         returns = group["strategy_return"]
         total_return = float((1.0 + returns).prod() - 1.0)
         daily_volatility = float(returns.std(ddof=1))
-        downside_deviation = float(returns.clip(upper=0.0).pow(2).mean() ** 0.5)
         annualized_return = (
             (1.0 + total_return) ** (252.0 / len(returns)) - 1.0
             if total_return > -1.0
@@ -272,11 +272,6 @@ def summarize_backtest(daily_results: pd.DataFrame) -> pd.DataFrame:
                 "sharpe_ratio": (
                     float(returns.mean() / daily_volatility * math.sqrt(252.0))
                     if daily_volatility > 0
-                    else float("nan")
-                ),
-                "sortino_ratio": (
-                    float(returns.mean() / downside_deviation * math.sqrt(252.0))
-                    if downside_deviation > 0
                     else float("nan")
                 ),
                 "max_drawdown": float(drawdown.min()),
@@ -352,54 +347,3 @@ def _validate_predictions(
         values = pd.to_numeric(predictions[column], errors="coerce")
         if values.isna().any() or not values.map(math.isfinite).all():
             raise ValueError(f"Model prediction {column} must contain finite values.")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--input",
-        type=Path,
-        default=Path("data") / "pair_prices.csv",
-        help="Input pair-prices CSV (default: data/pair_prices.csv).",
-    )
-    parser.add_argument("--start-year", type=int, default=2014)
-    parser.add_argument("--end-year", type=int, default=2023)
-    parser.add_argument("--train-years", type=int, default=4)
-    parser.add_argument("--test-years", type=int, default=1)
-    parser.add_argument("--step-years", type=int, default=1)
-    parser.add_argument(
-        "--transaction-cost-bps",
-        type=float,
-        default=0.0,
-        help="One-way transaction cost in basis points per dollar traded.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("backtest_results"),
-        help="Directory for daily results and summary CSVs.",
-    )
-    args = parser.parse_args()
-
-    data = pd.read_csv(args.input, parse_dates=["date"])
-    daily = run_walk_forward_backtest(
-        data,
-        start_year=args.start_year,
-        end_year=args.end_year,
-        train_years=args.train_years,
-        test_years=args.test_years,
-        step_years=args.step_years,
-        transaction_cost_bps=args.transaction_cost_bps,
-    )
-    summary = summarize_backtest(daily)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    daily.to_csv(args.output_dir / "daily_results.csv", index=False)
-    summary.to_csv(args.output_dir / "summary.csv", index=False)
-    print(
-        f"Wrote {len(daily)} daily rows and {len(summary)} pair/fold summaries "
-        f"to {args.output_dir}."
-    )
-
-
-if __name__ == "__main__":
-    main()
