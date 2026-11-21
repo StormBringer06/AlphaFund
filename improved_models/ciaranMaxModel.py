@@ -27,6 +27,11 @@ Accounting: exits edit V3's target weights and the result is re-run through
 
     python -m improved_models.ciaranMaxModel                    # 10-year screen
     python -m improved_models.ciaranMaxModel --screen 5y        # BD's 5-year screen
+    python -m improved_models.ciaranMaxModel --retrain          # refit the exit models
+
+The yearly exit models are saved in ``models/exit_ridge_weights.json`` (13
+weights, intercept and input scaling per year) and loaded on later runs; any
+year missing from the file is fitted on the fly and added.
 """
 
 from __future__ import annotations
@@ -41,7 +46,8 @@ import pandas as pd
 
 from backtest import apply_positions_to_returns, run_walk_forward_backtest
 from improved_models.exit_model import (
-    load_context, pool_checkpoints, traded_checkpoints, walk_forward_decisions,
+    RIDGE_WEIGHTS_PATH, load_context, load_ridge_weights, pool_checkpoints, ridge_decisions,
+    save_ridge_weights, traded_checkpoints, train_ridge_weights,
 )
 from improved_models.regression_model import portfolio_metrics
 from improved_models.vol_scaled_naive_model import VolScaledNaivePairsTradingModel, select_parameters
@@ -110,6 +116,8 @@ def main() -> None:
     parser.add_argument("--end-year", type=int, default=2023)
     parser.add_argument("--train-years", type=int, default=4)
     parser.add_argument("--cost-bps", type=float, default=5.0, help="Net-of-fees cost.")
+    parser.add_argument("--retrain", action="store_true",
+                        help="Refit the yearly exit models instead of loading saved weights.")
     parser.add_argument("--output-dir", type=Path, default=Path("backtest_results") / "ciaranMaxModel")
     args = parser.parse_args()
     warnings.simplefilter("ignore")
@@ -123,15 +131,22 @@ def main() -> None:
     print("Running BD's V3 ...", flush=True)
     v3_gross, params = run_v3(data, selection, years, args.train_years)
 
-    print("Building exit-classifier training data and walk-forward decisions ...", flush=True)
     ctx = load_context()
-    pool_cp = pool_checkpoints(ctx)
+    models = {} if args.retrain else load_ridge_weights()
+    missing = [y for y in years if str(y) not in models]
+    if missing:
+        print(f"Training exit classifier for {missing} (pool data, ~30s) ...", flush=True)
+        models.update(train_ridge_weights(pool_checkpoints(ctx), missing))
+        save_ridge_weights(dict(sorted(models.items())))
+        print(f"  saved to {RIDGE_WEIGHTS_PATH}", flush=True)
+    else:
+        print(f"Loaded saved exit-classifier weights from {RIDGE_WEIGHTS_PATH}", flush=True)
 
     rows, outputs = [], {}
     for label, cost in (("gross", 0.0), (f"net_{args.cost_bps:g}bps", args.cost_bps)):
         v3 = apply_positions_to_returns(v3_gross, transaction_cost_bps=cost)
         traded_cp, _ = traded_checkpoints(ctx, v3)
-        decisions = walk_forward_decisions(pool_cp, traded_cp, years)
+        decisions = ridge_decisions(models, traded_cp, years)
         maxed = apply_positions_to_returns(apply_exit_targets(v3, decisions, EXIT_RULE),
                                            transaction_cost_bps=cost)
         rows.append({"costs": label, **metrics(v3, "vol_scaled_naive_v3 (BD)")})

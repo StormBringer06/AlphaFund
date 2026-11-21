@@ -261,6 +261,71 @@ def walk_forward_decisions(pool_cp: pd.DataFrame, traded_cp: pd.DataFrame,
     return pd.concat(out, ignore_index=True)
 
 
+RIDGE_WEIGHTS_PATH = Path("models") / "exit_ridge_weights.json"
+
+
+def fit_ridge_weights(train: pd.DataFrame) -> dict:
+    """The ridge part of ExitModels as plain numbers (identical fit and scaling)."""
+    x = train[FEATURES].to_numpy(float)
+    mu = np.nanmedian(x, 0)
+    x = np.where(np.isfinite(x), x, mu)
+    sd = x.std(0)
+    sd[sd == 0] = 1.0
+    y = train["remaining_pnl"].to_numpy() / train["remaining_pnl"].std()
+    lo, hi = np.quantile(y, [0.01, 0.99])
+    ridge = Ridge(alpha=10.0).fit((x - mu) / sd, np.clip(y, lo, hi))
+    return {"fill_median": mu.tolist(), "scale_sd": sd.tolist(),
+            "coef": ridge.coef_.tolist(), "intercept": float(ridge.intercept_),
+            "n_train_checkpoints": int(len(train))}
+
+
+def train_ridge_weights(pool_cp: pd.DataFrame, years) -> dict:
+    """One model per year, each trained on pool checkpoints resolved before 1 Jan."""
+    return {str(y): {"trained_on_resolved_before": f"{y}-01-01",
+                     **fit_ridge_weights(pool_cp.loc[pool_cp["resolved"] < pd.Timestamp(year=y, month=1, day=1)])}
+            for y in years}
+
+
+def save_ridge_weights(models: dict, path: Path = RIDGE_WEIGHTS_PATH) -> None:
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"features": FEATURES, "checkpoints": list(CHECKPOINTS), "ridge_alpha": 10.0,
+               "rule": "exit when predicted remaining P&L < 0", "models": models}
+    path.write_text(json.dumps(payload, indent=1))
+
+
+def load_ridge_weights(path: Path = RIDGE_WEIGHTS_PATH) -> dict:
+    """Saved yearly models, or {} if missing or built for different features."""
+    import json
+
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text())
+    if payload.get("features") != FEATURES or payload.get("checkpoints") != list(CHECKPOINTS):
+        return {}
+    return payload["models"]
+
+
+def ridge_decisions(models: dict, traded_cp: pd.DataFrame, years) -> pd.DataFrame:
+    """"ridge<0" decisions for checkpoints dated in each year, from saved weights."""
+    out = []
+    for year in years:
+        test = traded_cp.loc[traded_cp["date"].dt.year == year]
+        if not len(test):
+            continue
+        m = models[str(year)]
+        mu, sd = np.array(m["fill_median"]), np.array(m["scale_sd"])
+        x = test[FEATURES].to_numpy(float)
+        x = np.where(np.isfinite(x), x, mu)
+        pred = ((x - mu) / sd) @ np.array(m["coef"]) + m["intercept"]
+        dec = test[["ep_key", "checkpoint", "remaining_pnl"]].copy()
+        dec["predicted_remaining"] = pred
+        dec["ridge<0"] = pred < 0
+        out.append(dec)
+    return pd.concat(out, ignore_index=True)
+
+
 def apply_exits(episode_daily: pd.DataFrame, decisions: pd.DataFrame, rule: str,
                 cost_bps: float) -> pd.Series:
     """Equal-weight portfolio daily returns after flattening at each first exit.
