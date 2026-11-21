@@ -1,0 +1,44 @@
+{
+  "data_provenance": "SYNTHETIC illustrative arrays, not backtest evidence",
+  "result": {
+    "nobs": 2520,
+    "maxlags": 8,
+    "mean_difference": 5.819604136813056e-05,
+    "hac_standard_error": 2.9354839912526767e-05,
+    "z_statistic": 1.9825024269097178,
+    "p_value_one_sided": 0.023711518015430862,
+    "log_p_value_one_sided": -3.7417943566847462,
+    "decisions": [
+      {
+        "alpha": 0.05,
+        "critical_z": 1.6448536269514729,
+        "reject_h0": true,
+        "lower_confidence_bound": 9.911626469431053e-06
+      },
+      {
+        "alpha": 0.025,
+        "critical_z": 1.9599639845400545,
+        "reject_h0": true,
+        "lower_confidence_bound": 6.616123676391738e-07
+      },
+      {
+        "alpha": 0.01,
+        "critical_z": 2.3263478740408408,
+        "reject_h0": false,
+        "lower_confidence_bound": -1.0093528055185305e-05
+      },
+      {
+        "alpha": 0.005,
+        "critical_z": 2.575829303548901,
+        "reject_h0": false,
+        "lower_confidence_bound": -1.741701547954273e-05
+      },
+      {
+        "alpha": 0.001,
+        "critical_z": 3.090232306167813,
+        "reject_h0": false,
+        "lower_confidence_bound": -3.251723327194399e-05
+      }
+    ]
+  }
+}
