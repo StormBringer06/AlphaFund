@@ -269,3 +269,21 @@ The delivered tests compare the fitted SE with an independent scalar Bartlett ca
 Verification result after audit: **80 tests passed**, using Python 3.12.14, NumPy 2.5.5, SciPy 1.18.1 and statsmodels 0.15.0. The long-array test uses 50,000 observations; additional tests cover masked inputs, extreme positive unit rescaling, a second independent Bartlett variance identity, stable annual mean accumulation and the annual grouped test. A separate randomized check covered 138 covariance cases. Both runnable examples were exercised during the audit.
 
 Rerun the tests after changing dependencies or the estimator. Numerical tests establish implementation correctness under their fixtures; they do not prove that your actual return process satisfies the assumptions.
+
+
+For the simple version we agreed on, I recommend a prespecified baseline rule, supported by lag sensitivity and the annual grouped check. I would not choose 21 or 252 simply because they represent a month or year.
+1. Use the existing mechanical rule as the baseline.
+   \[
+   L=\left\lfloor4(T/100)^{2/9}\right\rfloor
+   \]
+   For approximately 2,520 observations, this gives maxlags=8. Its justification is transparency and reproducibility—not that eight days is necessarily correct for your strategy. This is the heuristic documented in statsmodels, not the fuller data-dependent Newey–West (1994) selector. Statsmodels source.
+2. Check whether that baseline is plausible using development data.
+   Examine the autocorrelation of VIX-minus-naive return differences, alongside typical and maximum holding periods. Holding periods help explain possible dependence, but they do not establish an exact cutoff. If development data show substantial persistence beyond eight days, revise the specification before evaluating the untouched test period. Avoid selecting “the last statistically significant autocorrelation.”
+3. Prespecify the sensitivity checks.
+   Report the baseline alongside 5, 10, 21, 63, 126 and 252 lags, using the same sample. Do not select the smallest p-value. Long windows also introduce estimation uncertainty; larger bandwidths are not automatically better. Kiefer and Vogelsang (2005).
+4. Address annual portfolio effects separately.
+   Annual reselection does not automatically imply maxlags=252. Use the annual grouped check to assess uncertainty across portfolios, subject to its independence and approximate Gaussianity assumptions. If the daily and annual evidence conflict, the pitch should disclose that fragility.
+Without your development returns and holding-period information, I cannot honestly justify one numerical lag as optimal. Eight is a reproducible baseline, not a validated dependence horizon.
+
+For the pitch, you could say:
+We will prespecify a mechanical HAC lag rule for the primary daily mean-return test, giving approximately eight lags for our ten-year sample. We will report sensitivity to longer dependence windows and supplement the daily analysis with a year-level grouped check because portfolio constituents are reselected annually. We will interpret outperformance cautiously where conclusions depend materially on the uncertainty specification.
