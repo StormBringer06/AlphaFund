@@ -1,0 +1,2 @@
+model_name,annualized_return,annualized_volatility,sharpe_ratio,max_drawdown,average_gross_exposure,average_daily_turnover
+vol_scaled_naive_v2,0.0019458335633240065,0.01090420070837791,0.18372467986603291,-0.0191961310424954,0.18605498509440213,0.012055755588248323

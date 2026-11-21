@@ -117,7 +117,12 @@ def half_life(spread: pd.Series) -> float:
     return -math.log(2) / slope if slope < 0 else math.inf
 
 
-def score_pair(log_a: pd.Series, log_b: pd.Series) -> dict[str, float]:
+def score_pair(
+    log_a: pd.Series,
+    log_b: pd.Series,
+    window_months: int = WINDOW_YEARS * 12,
+    step_months: int = WINDOW_STEP_MONTHS,
+) -> dict[str, float]:
     """Full-period and rolling-window diagnostics for one oriented pair."""
     from statsmodels.tsa.stattools import coint
 
@@ -126,14 +131,19 @@ def score_pair(log_a: pd.Series, log_b: pd.Series) -> dict[str, float]:
     window_pvalues: list[float] = []
     window_betas: list[float] = []
     window_start = log_a.index[0]
-    last_start = log_a.index[-1] - pd.DateOffset(years=WINDOW_YEARS)
+    last_start = log_a.index[-1] - pd.DateOffset(months=window_months)
     while window_start <= last_start:
-        window_end = window_start + pd.DateOffset(years=WINDOW_YEARS)
+        window_end = window_start + pd.DateOffset(months=window_months)
         a = log_a.loc[window_start:window_end]
         b = log_b.loc[window_start:window_end]
         window_pvalues.append(float(coint(a, b)[1]))
         window_betas.append(hedge_ratio(a, b))
-        window_start += pd.DateOffset(months=WINDOW_STEP_MONTHS)
+        window_start += pd.DateOffset(months=step_months)
+    if not window_betas:
+        raise ValueError(
+            f"Screen period is shorter than one {window_months}-month window; "
+            "pass a shorter window_months."
+        )
 
     return {
         "full_pvalue": float(coint(log_a, log_b)[1]),
@@ -145,7 +155,11 @@ def score_pair(log_a: pd.Series, log_b: pd.Series) -> dict[str, float]:
     }
 
 
-def screen(closes: pd.DataFrame) -> pd.DataFrame:
+def screen(
+    closes: pd.DataFrame,
+    window_months: int = WINDOW_YEARS * 12,
+    step_months: int = WINDOW_STEP_MONTHS,
+) -> pd.DataFrame:
     """Score every same-sector pair that has complete data."""
     rows: list[dict[str, object]] = []
     for sector, tickers in UNIVERSE.items():
@@ -165,8 +179,8 @@ def screen(closes: pd.DataFrame) -> pd.DataFrame:
                 continue
 
             # Engle-Granger is not symmetric; keep the orientation it prefers.
-            forward = score_pair(logs[first], logs[second])
-            backward = score_pair(logs[second], logs[first])
+            forward = score_pair(logs[first], logs[second], window_months, step_months)
+            backward = score_pair(logs[second], logs[first], window_months, step_months)
             if backward["full_pvalue"] < forward["full_pvalue"]:
                 rows.append({**row, "ticker_a": second, "ticker_b": first, **backward})
             else:

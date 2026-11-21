@@ -1,0 +1,2 @@
+model_name,sharpe,sharpe_ex_2020_2022,ann_return_at_baseline_vol,sharpe_p05,sharpe_p95,gap_vs_baseline_p05,gap_vs_baseline_p95,prob_beats_baseline
+vol_scaled_naive_v2,0.18372467986603291,-0.11501438961820666,0.0020033707843417005,-0.2917704693636491,0.4739712143100979,0.0,0.0,0.0

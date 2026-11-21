@@ -1,3 +1,5 @@
+import dataclasses
+import math
 import unittest
 
 import numpy as np
@@ -7,6 +9,10 @@ from backtest import run_walk_forward_backtest
 from improved_models.vol_scaled_naive_model import (
     VolScaledNaivePairsTradingModel as Model,
     select_parameters,
+)
+from improved_models.vol_scaled_naive_model_v2 import (
+    VolScaledNaivePairsTradingModelV2,
+    apply_portfolio_sizing,
 )
 from test_regression_model import make_data
 
@@ -89,6 +95,58 @@ class VolScaledNaiveModelTests(unittest.TestCase):
             transaction_cost_bps=5.0,
         )
         self.assertFalse(daily["strategy_return"].isna().any())
+
+    def test_v2_has_realized_vol_and_stability_diagnostics(self):
+        out = VolScaledNaivePairsTradingModelV2(
+            target_pair_volatility=0.12,
+            max_spread_half_life=60.0,
+            min_hedge_stability=0.5,
+        ).fit(self.train).predict(self.test)
+        self.assertIn("realized_spread_vol", out.columns)
+        self.assertIn("spread_half_life", out.columns)
+        self.assertIn("hedge_stability", out.columns)
+        self.assertTrue((out["volatility_multiplier"] >= 0.25).all())
+        self.assertTrue((out["volatility_multiplier"] <= 4.0).all())
+
+    def test_v2_portfolio_sizing_keeps_model_size_and_caps(self):
+        second = self.data.assign(pair_id="second_pair")
+        daily = run_walk_forward_backtest(
+            pd.concat([self.data, second], ignore_index=True),
+            model_factory=lambda: VolScaledNaivePairsTradingModelV2(min_hedge_stability=0.0),
+            start_year=2019,
+            end_year=2020,
+            train_years=4,
+            transaction_cost_bps=5.0,
+            model_name="v2",
+        )
+        self.assertTrue((daily["target_gross_exposure"].between(0.01, 0.99)).any())
+        for target, expected_budget in ((0.6, 0.3), (1.5, 0.4)):
+            sized = apply_portfolio_sizing(
+                daily,
+                target_gross_exposure=target,
+                max_pair_gross_exposure=0.40,
+                transaction_cost_bps=5.0,
+            )
+            # Model size is preserved: sized gross = budget * model gross.
+            np.testing.assert_allclose(
+                sized["target_gross_exposure"],
+                expected_budget * daily["target_gross_exposure"],
+                atol=1e-12,
+            )
+            per_date = sized.groupby(["fold_id", "date"])["target_gross_exposure"].sum()
+            self.assertLessEqual(per_date.max(), target + 1e-9)
+
+    def test_v2_gate_closes_positions_inside_the_band(self):
+        model = VolScaledNaivePairsTradingModelV2(band=0.4).fit(self.train)
+        out = model.predict(self.test.iloc[:50])
+        model._position = 0.1  # small open position, well inside the band
+        model._hedge = dataclasses.replace(model._hedge, spread_half_life=math.inf)
+        segment = model._features(model._history, model._hedge).tail(5).copy()
+        positions = model._positions(segment, model._hedge)
+        self.assertFalse(positions["pair_stable"].any())
+        self.assertTrue((positions["signal"] == 0.0).all())
+        self.assertTrue(positions["rebalanced"].iloc[0])
+        self.assertFalse(out.empty)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+test_year,zscore_halflife,full_exposure_zscore,vix_scale,band,band_vix_scale,target_pair_volatility,max_spread_half_life,min_hedge_stability,pairs
+2014,60.0,2.0,0.25,0.4,0.5,0.12,60.0,0.75,"xel_wec,pnc_usb,trv_cb"
+2015,60.0,2.0,0.5,0.4,0.5,0.12,60.0,0.75,"wec_xel,pnc_usb,cb_trv,pg_kmb,jpm_wfc"
+2016,60.0,2.0,0.5,0.4,0.0,0.12,60.0,0.75,"xel_wec,pnc_usb,slb_cop,cb_trv,jpm_wfc"
+2017,60.0,2.0,0.25,0.4,0.0,0.12,60.0,0.75,"wec_xel,tfc_pnc,pg_pep,csx_nsc,trv_cb"
+2018,60.0,2.0,0.5,0.4,0.5,0.12,60.0,0.75,"tfc_pnc,pg_pep,trv_cb,cl_kmb,oxy_slb"
+2019,60.0,2.0,0.5,0.2,0.0,0.12,60.0,0.75,"c_gs,trv_all,wec_aep,maa_udr,cl_kmb"
+2020,60.0,2.0,0.5,0.2,0.0,0.12,60.0,0.75,"c_gs,wec_aep,noc_lmt,tfc_pnc,cl_kmb"
+2021,60.0,2.0,0.5,0.4,0.0,0.12,60.0,0.75,"ess_udr,lmt_noc,trv_all,ko_pep,tfc_pnc"
+2022,60.0,2.0,0.25,0.2,0.5,0.12,60.0,0.75,"ess_udr,bac_pnc,mdlz_pep,all_cb,wec_xel"
+2023,60.0,2.0,0.5,0.4,0.0,0.12,60.0,0.75,"bac_pnc,mdlz_pep,wec_xel,unp_nsc,trv_cb"

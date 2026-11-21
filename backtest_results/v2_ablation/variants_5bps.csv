@@ -1,0 +1,13 @@
+model_name,zscore_halflife,vix_scale,band,band_vix_scale,target_pair_volatility,max_spread_half_life,min_hedge_stability
+v2_all_off,120.0,0.0,0.0,0.0,,inf,0.0
++halflife_60,60.0,0.0,0.0,0.0,,inf,0.0
++gate,120.0,0.0,0.0,0.0,,60.0,0.75
++vol_target,120.0,0.0,0.0,0.0,0.12,inf,0.0
++band,120.0,0.0,0.2,0.0,,inf,0.0
++vix_overlay,120.0,0.25,0.0,0.0,,inf,0.0
+v2_full_fixed,60.0,0.25,0.2,0.0,0.12,60.0,0.75
+full-halflife_60,120.0,0.25,0.2,0.0,0.12,60.0,0.75
+full-gate,60.0,0.25,0.2,0.0,0.12,inf,0.0
+full-vol_target,60.0,0.25,0.2,0.0,,60.0,0.75
+full-band,60.0,0.25,0.0,0.0,0.12,60.0,0.75
+full-vix_overlay,60.0,0.0,0.2,0.0,0.12,60.0,0.75

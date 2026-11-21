@@ -1,0 +1,11 @@
+test_year,vix_scale,band,band_vix_scale,pairs
+2014,0.0,0.2,0.0,"c_gs,xel_wec,ed_so,all_trv,csx_nsc"
+2015,0.0,0.2,0.0,"c_gs,udr_ess,wec_xel,cl_kmb,pnc_wfc"
+2016,0.25,0.2,0.0,"c_gs,bac_jpm,ko_cl,slb_hal"
+2017,0.25,0.2,0.0,"oxy_hal,ko_pep,usb_pnc,wec_xel,nee_aep"
+2018,0.25,0.2,0.0,"ko_pep,wec_xel,psx_vlo,tfc_bac"
+2019,0.25,0.2,0.0,"aep_xel,lmt_noc,wfc_gs,d_ed,psx_vlo"
+2020,0.25,0.2,0.0,"aep_wec,tfc_bac,wfc_gs,duk_xel,pep_pg"
+2021,0.25,0.2,0.0,"v_ma,eog_oxy,tfc_c,mdlz_pg,hsy_pep"
+2022,0.25,0.2,0.0,"v_ma,mdlz_pep,kmb_pg,tfc_bac,csx_nsc"
+2023,0.0,0.2,0.0,"bac_pnc,ma_v,mdlz_pg,vlo_xom,unp_nsc"

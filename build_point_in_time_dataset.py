@@ -39,6 +39,8 @@ def select_by_year(
     test_years: range,
     screen_years: int,
     count: int,
+    window_months: int = 24,
+    step_months: int = 6,
 ) -> pd.DataFrame:
     """Run the screen on the ``screen_years`` before each test year."""
     rows: list[pd.DataFrame] = []
@@ -48,7 +50,7 @@ def select_by_year(
         window = closes.loc[(closes.index >= start) & (closes.index < end)]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            selected = select_pairs(screen(window), count)
+            selected = select_pairs(screen(window, window_months, step_months), count)
         selected.insert(0, "test_year", year)
         selected.insert(1, "pair_id", [
             pair_id(a, b) for a, b in zip(selected["ticker_a"], selected["ticker_b"])
@@ -64,6 +66,15 @@ def main() -> None:
     parser.add_argument("--end-year", type=int, default=2023)
     parser.add_argument("--screen-years", type=int, default=10)
     parser.add_argument("--count", type=int, default=5)
+    parser.add_argument(
+        "--window-months", type=int, default=24,
+        help="Rolling-window length used to rank pairs (must fit in --screen-years).",
+    )
+    parser.add_argument("--step-months", type=int, default=6)
+    parser.add_argument(
+        "--output-prefix", default="pit",
+        help="Writes <prefix>_pair_selection.csv and <prefix>_pair_prices.csv.",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("data"))
     parser.add_argument("--request-delay", type=float, default=5.0)
     parser.add_argument("--refresh", action="store_true")
@@ -89,7 +100,12 @@ def main() -> None:
     vix = closes[VIX_TICKER].dropna()
     stocks = closes.drop(columns=[VIX_TICKER])
     selection = select_by_year(
-        stocks, range(args.start_year, args.end_year + 1), args.screen_years, args.count
+        stocks,
+        range(args.start_year, args.end_year + 1),
+        args.screen_years,
+        args.count,
+        args.window_months,
+        args.step_months,
     )
     pairs = tuple(
         (pid, f"{a} / {b}", a, b)
@@ -99,9 +115,10 @@ def main() -> None:
     )
     prices = make_pair_prices(stocks, vix, pairs)
 
-    selection.to_csv(args.output_dir / "pit_pair_selection.csv", index=False)
+    prefix = args.output_prefix
+    selection.to_csv(args.output_dir / f"{prefix}_pair_selection.csv", index=False)
     prices.to_csv(
-        args.output_dir / "pit_pair_prices.csv", index=False, date_format="%Y-%m-%d"
+        args.output_dir / f"{prefix}_pair_prices.csv", index=False, date_format="%Y-%m-%d"
     )
     print(
         f"Selected {len(pairs)} distinct pairs across {selection['test_year'].nunique()} "
