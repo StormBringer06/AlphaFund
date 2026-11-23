@@ -1,0 +1,478 @@
+"""Volatility-targeted, portfolio-scaled extension of the naive pairs model."""
+
+from __future__ import annotations
+
+import argparse
+import itertools
+import math
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from backtest import apply_positions_to_returns, run_walk_forward_backtest, summarize_backtest
+from base_model import NaivePairsTradingModel
+from improved_models.regression_model import RegressionPairsTradingModel, portfolio_metrics
+from improved_models.vol_scaled_naive_model_nl import (
+    VolScaledNaivePairsTradingModel,
+    _portfolio_sharpe,
+    robustness_table,
+    select_parameters,
+)
+
+
+_INPUT_COLUMNS = ("date", "adjusted_close_a", "adjusted_close_b", "vix")
+
+
+@dataclass(frozen=True)
+class _HedgeV2:
+    intercept: float
+    hedge_ratio: float
+    spread_half_life: float
+    hedge_stability: float
+
+
+class VolScaledNaivePairsTradingModelV2:
+    """Naive EWMA signal with realized-vol targeting and pair-quality gating."""
+
+    def __init__(
+        self,
+        vix_scale: float = 0.25,
+        band: float = 0.2,
+        band_vix_scale: float = 0.0,
+        zscore_halflife: float = 120.0,
+        full_exposure_zscore: float = 2.0,
+        max_gross_exposure: float = 1.0,
+        vix_window: int = 504,
+        realized_vol_window: int = 20,
+        target_pair_volatility: float | None = 0.12,  # None disables vol targeting
+        max_spread_half_life: float = 60.0,
+        min_hedge_stability: float = 0.5,
+        lookback_years: int = 2,
+        refit_interval_months: int = 6,
+        min_train_observations: int = 120,
+    ) -> None:
+        if not math.isfinite(vix_scale) or vix_scale < 0 or vix_scale > 0.5:
+            raise ValueError("vix_scale must be finite and between 0 and 0.5.")
+        if not math.isfinite(band) or band < 0:
+            raise ValueError("band must be finite and non-negative.")
+        if not math.isfinite(band_vix_scale) or band_vix_scale < 0 or band_vix_scale > 0.5:
+            raise ValueError("band_vix_scale must be finite and between 0 and 0.5.")
+        if zscore_halflife <= 0 or full_exposure_zscore <= 0:
+            raise ValueError("zscore_halflife and full_exposure_zscore must be positive.")
+        if max_gross_exposure <= 0:
+            raise ValueError("max_gross_exposure must be positive.")
+        if realized_vol_window < 5 or (
+            target_pair_volatility is not None and target_pair_volatility <= 0
+        ):
+            raise ValueError("realized_vol_window must be >= 5 and target pair volatility positive.")
+        if max_spread_half_life <= 0:
+            raise ValueError("max_spread_half_life must be positive.")
+        if not 0 <= min_hedge_stability <= 1:
+            raise ValueError("min_hedge_stability must be between 0 and 1.")
+
+        self.vix_scale = float(vix_scale)
+        self.band = float(band)
+        self.band_vix_scale = float(band_vix_scale)
+        self.zscore_halflife = float(zscore_halflife)
+        self.full_exposure_zscore = float(full_exposure_zscore)
+        self.max_gross_exposure = float(max_gross_exposure)
+        self.vix_window = vix_window
+        self.realized_vol_window = realized_vol_window
+        self.target_pair_volatility = (
+            None if target_pair_volatility is None else float(target_pair_volatility)
+        )
+        self.max_spread_half_life = float(max_spread_half_life)
+        self.min_hedge_stability = float(min_hedge_stability)
+        self.lookback_years = lookback_years
+        self.refit_interval_months = refit_interval_months
+        self.min_train_observations = min_train_observations
+
+        self._hedge: _HedgeV2 | None = None
+        self._history: pd.DataFrame | None = None
+        self._next_refit_date: pd.Timestamp | None = None
+        self._last_refit_date: pd.Timestamp | None = None
+        self._position = 0.0
+
+    def fit(self, train_data: pd.DataFrame) -> "VolScaledNaivePairsTradingModelV2":
+        train = RegressionPairsTradingModel._prepare(train_data, "training")
+        last_date = train["date"].iloc[-1]
+        self._hedge = self._estimate(train, last_date)
+        self._history = train[list(_INPUT_COLUMNS)].reset_index(drop=True)
+        self._last_refit_date = last_date
+        self._next_refit_date = last_date + pd.DateOffset(months=self.refit_interval_months)
+        self._position = 0.0
+        return self
+
+    def predict(self, test_data: pd.DataFrame) -> pd.DataFrame:
+        if self._hedge is None or self._history is None:
+            raise RuntimeError("Call fit with training data before predict.")
+        test = RegressionPairsTradingModel._prepare(test_data, "test")
+        if test["date"].iloc[0] <= self._history["date"].iloc[-1]:
+            raise ValueError("Test dates must be strictly after previously seen dates.")
+        combined = pd.concat([self._history, test[list(_INPUT_COLUMNS)]], ignore_index=True)
+
+        hedge = self._hedge
+        last_refit = self._last_refit_date
+        frames = []
+        for start, end, refit in self._segments(test["date"]):
+            if refit:
+                hedge = self._estimate(combined.loc[combined["date"] < start], start)
+                last_refit = start
+            features = self._features(combined.loc[combined["date"] <= end], hedge)
+            segment = features.loc[features["date"] >= start].copy()
+            segment["beta_refit"] = (segment["date"] == start) & refit
+            segment["beta_refit_date"] = last_refit
+            frames.append(self._positions(segment, hedge))
+
+        signals = pd.concat(frames, ignore_index=True)
+        self._hedge = hedge
+        self._last_refit_date = last_refit
+        warmup_days = max(
+            math.ceil(5 * self.zscore_halflife * 7 / 5),
+            math.ceil(self.vix_window * 7 / 5),
+        )
+        cutoff = test["date"].iloc[-1] - pd.DateOffset(years=self.lookback_years) - pd.Timedelta(days=warmup_days)
+        self._history = combined.loc[combined["date"] >= cutoff].reset_index(drop=True)
+        return test.merge(
+            signals.drop(columns=list(_INPUT_COLUMNS[1:])),
+            on="date",
+            how="left",
+            validate="one_to_one",
+        )
+
+    def _estimate(self, known: pd.DataFrame, as_of: pd.Timestamp) -> _HedgeV2:
+        window = known.loc[known["date"] >= as_of - pd.DateOffset(years=self.lookback_years)]
+        if len(window) < self.min_train_observations:
+            raise ValueError(f"Estimation window has {len(window)} rows; need at least {self.min_train_observations}.")
+
+        hedge_ratio, intercept = self._fit_hedge(window)
+        spread = (
+            np.log(window["adjusted_close_a"].to_numpy(dtype=float))
+            - intercept
+            - hedge_ratio * np.log(window["adjusted_close_b"].to_numpy(dtype=float))
+        )
+
+        if len(spread) >= 20:
+            lagged = spread[:-1]
+            current = spread[1:]
+            design = np.column_stack([np.ones(len(lagged)), lagged])
+            rho = float(np.linalg.lstsq(design, current, rcond=None)[0][1])
+            half_life = (
+                -math.log(2.0) / math.log(rho)
+                if 0.0 < rho < 1.0
+                else float("inf")
+            )
+        else:
+            half_life = float("inf")
+
+        split = len(window) // 2
+        first = window.iloc[:split]
+        second = window.iloc[split:]
+        stability = 0.0
+        if len(first) >= 30 and len(second) >= 30:
+            first_ratio = self._fit_hedge(first)[0]
+            second_ratio = self._fit_hedge(second)[0]
+            scale = max(abs(first_ratio), abs(second_ratio), 1e-9)
+            stability = float(np.clip(1.0 - abs(first_ratio - second_ratio) / scale, 0.0, 1.0))
+
+        return _HedgeV2(intercept, hedge_ratio, half_life, stability)
+
+    @staticmethod
+    def _fit_hedge(frame: pd.DataFrame) -> tuple[float, float]:
+        log_a = np.log(frame["adjusted_close_a"].to_numpy(dtype=float))
+        log_b = np.log(frame["adjusted_close_b"].to_numpy(dtype=float))
+        if np.var(log_b, ddof=1) <= 1e-12:
+            raise ValueError("Estimation window has no variance in ticker_b prices.")
+        ratio = float(np.cov(log_b, log_a, ddof=1)[0, 1] / np.var(log_b, ddof=1))
+        intercept = float(log_a.mean() - ratio * log_b.mean())
+        return ratio, intercept
+
+    def _features(self, frame: pd.DataFrame, hedge: _HedgeV2) -> pd.DataFrame:
+        out = frame.reset_index(drop=True).copy()
+        spread = np.log(out["adjusted_close_a"]) - (
+            hedge.intercept + hedge.hedge_ratio * np.log(out["adjusted_close_b"])
+        )
+        ewm = spread.ewm(halflife=self.zscore_halflife, min_periods=int(self.zscore_halflife))
+        mean = ewm.mean().shift(1)
+        std = ewm.std().shift(1)
+
+        out["spread"] = spread
+        out["spread_zscore"] = (spread - mean) / std.where(std > 0)
+        out["vix_pct"] = (
+            out["vix"].rolling(self.vix_window, min_periods=self.vix_window // 4).rank(pct=True)
+        )
+        out["realized_spread_vol"] = (
+            spread.diff().rolling(self.realized_vol_window, min_periods=max(5, self.realized_vol_window // 2)).std()
+            * math.sqrt(252.0)
+        )
+        out["spread_half_life"] = hedge.spread_half_life
+        out["hedge_stability"] = hedge.hedge_stability
+        return out
+
+    def _positions(self, segment: pd.DataFrame, hedge: _HedgeV2) -> pd.DataFrame:
+        z = segment["spread_zscore"].to_numpy(dtype=float)
+        vix_pct = segment["vix_pct"].fillna(0.5).to_numpy(dtype=float)
+        base = -np.tanh(z / self.full_exposure_zscore)
+        vix_multiplier = np.clip(1.0 + 2.0 * self.vix_scale * (vix_pct - 0.5), 0.5, 1.5)
+        if self.target_pair_volatility is None:
+            volatility_multiplier = np.ones(len(z))
+        else:
+            target_vol = self.target_pair_volatility
+            realized_vol = segment["realized_spread_vol"].to_numpy(dtype=float)
+            realized_vol = np.nan_to_num(realized_vol, nan=target_vol)
+            realized_vol = np.where(realized_vol > 1e-8, realized_vol, target_vol)
+            volatility_multiplier = np.clip(target_vol / realized_vol, 0.25, 4.0)
+        target = np.clip(
+            base * vix_multiplier * volatility_multiplier,
+            -self.max_gross_exposure,
+            self.max_gross_exposure,
+        )
+
+        # inf half-life fails any finite cap; max_spread_half_life=inf disables it.
+        pair_stable = (
+            hedge.spread_half_life <= self.max_spread_half_life
+            and hedge.hedge_stability >= self.min_hedge_stability
+        )
+        target = np.nan_to_num(target, nan=0.0)
+
+        band = self.band * np.clip(
+            1.0 + 2.0 * self.band_vix_scale * (0.5 - vix_pct),
+            0.0,
+            2.0,
+        )
+        if not pair_stable:
+            # Gated pairs must go flat: no band, so any open position is closed.
+            target[:] = 0.0
+            band[:] = 0.0
+        position = np.empty(len(target))
+        traded = np.zeros(len(target), dtype=bool)
+        current = self._position
+        for index, (wanted, width) in enumerate(zip(target, band)):
+            if abs(wanted - current) > width:
+                current = wanted
+                traded[index] = True
+            position[index] = current
+        self._position = current
+
+        scale = 1.0 + abs(hedge.hedge_ratio)
+        segment["vix_multiplier"] = vix_multiplier
+        segment["volatility_multiplier"] = volatility_multiplier
+        segment["band_width"] = band
+        segment["pair_stable"] = pair_stable
+        segment["target_signal"] = target
+        segment["rebalanced"] = traded
+        segment["signal"] = position
+        segment["target_weight_a"] = position / scale
+        segment["target_weight_b"] = -hedge.hedge_ratio * position / scale
+        segment["target_gross_exposure"] = np.abs(position)
+        return segment
+
+    def _segments(self, dates: pd.Series) -> list[tuple[pd.Timestamp, pd.Timestamp, bool]]:
+        segments: list[list[object]] = []
+        for date in dates:
+            if date >= self._next_refit_date:
+                segments.append([date, date, True])
+                while self._next_refit_date <= date:
+                    self._next_refit_date += pd.DateOffset(months=self.refit_interval_months)
+            elif not segments:
+                segments.append([date, date, False])
+            else:
+                segments[-1][1] = date
+        return [(start, end, refit) for start, end, refit in segments]
+
+
+# The VIX overlay and the band can each be switched off (0); vol targeting and
+# the pair-quality gate always apply. Single-value entries are fixed choices, recorded alongside
+# the searched ones in selected_parameters_*.csv. 6 combinations after skipping
+# band == 0 with band_vix_scale > 0.
+V2_DEFAULT_GRID = {
+    "zscore_halflife": (60.0,),
+    "full_exposure_zscore": (2.0,),
+    "target_pair_volatility": (0.12,),
+    "max_spread_half_life": (60.0,),
+    "min_hedge_stability": (0.75,),
+    "vix_scale": (0.0, 0.25),
+    "band": (0.0, 0.2),
+    "band_vix_scale": (0.0, 0.5),
+}
+
+
+def select_parameters_v2(
+    data: pd.DataFrame,
+    test_year: int,
+    transaction_cost_bps: float,
+    train_years: int = 4,
+    inner_test_years: int = 2,
+    grid: dict[str, tuple[float, ...]] = V2_DEFAULT_GRID,
+) -> tuple[dict[str, float], pd.DataFrame]:
+    """Pick V2 parameters by inner walk-forward net Sharpe before ``test_year``.
+
+    Scored on the equal-weight pair average, as in V1. Portfolio sizing only
+    rescales that average by a constant, so it does not change the ranking.
+    """
+    inner_train_years = train_years - inner_test_years
+    training = data.loc[
+        (data["date"] >= pd.Timestamp(year=test_year - train_years, month=1, day=1))
+        & (data["date"] < pd.Timestamp(year=test_year, month=1, day=1))
+    ]
+    rows = []
+    for values in itertools.product(*grid.values()):
+        params = dict(zip(grid, values))
+        if params["band"] == 0 and params["band_vix_scale"] > 0:
+            continue  # same as band_vix_scale = 0
+        daily = run_walk_forward_backtest(
+            training,
+            model_factory=lambda p=params: VolScaledNaivePairsTradingModelV2(**p),
+            start_year=test_year - inner_test_years,
+            end_year=test_year - 1,
+            train_years=inner_train_years,
+            transaction_cost_bps=transaction_cost_bps,
+        )
+        rows.append({**params, "inner_sharpe": _portfolio_sharpe(daily)})
+    scores = pd.DataFrame(rows)
+    best = scores.loc[scores["inner_sharpe"].idxmax(), list(grid)].to_dict()
+    return {k: float(v) for k, v in best.items()}, scores
+
+
+def apply_portfolio_sizing(
+    daily: pd.DataFrame,
+    target_gross_exposure: float = 2.0,
+    max_pair_gross_exposure: float = 0.40,
+    transaction_cost_bps: float = 0.0,
+) -> pd.DataFrame:
+    """Scale each pair's model weights by an equal per-pair gross budget.
+
+    Budget = ``min(target_gross_exposure / n_pairs, max_pair_gross_exposure)``,
+    with ``n_pairs`` the pairs traded that date. The model's own position size
+    (z-score, VIX overlay, vol targeting; at most 1 gross) is kept, so a pair
+    reaches its budget only at full model size and the portfolio never exceeds
+    ``target_gross_exposure``. Vol scaling is already done per pair inside the
+    model, so no second inverse-vol weighting is applied here. Returns, costs
+    and turnover are then recomputed from the scaled weights.
+    """
+    if target_gross_exposure <= 0 or max_pair_gross_exposure <= 0:
+        raise ValueError("Portfolio and pair gross exposure limits must be positive.")
+    out = daily.copy()
+    group_keys = [key for key in ("model_name", "fold_id") if key in out.columns]
+    n_pairs = out.groupby(group_keys + ["date"])["pair_id"].transform("nunique")
+    budget = np.minimum(target_gross_exposure / n_pairs, max_pair_gross_exposure)
+    out["pair_budget"] = budget
+    out["target_weight_a"] = out["target_weight_a"] * budget
+    out["target_weight_b"] = out["target_weight_b"] * budget
+    out["target_gross_exposure"] = out["target_weight_a"].abs() + out["target_weight_b"].abs()
+    return apply_positions_to_returns(out, transaction_cost_bps=transaction_cost_bps)
+
+
+def portfolio_sum_metrics(daily: pd.DataFrame) -> pd.DataFrame:
+    """Like ``portfolio_metrics`` but sums pairs, for weights sized at portfolio level."""
+    rows = []
+    for model_name, group in daily.groupby("model_name", sort=False):
+        by_date = group.groupby("date")
+        returns = by_date["strategy_return"].sum()
+        vol = float(returns.std())
+        wealth = (1.0 + returns).cumprod()
+        years = len(returns) / 252.0
+        rows.append(
+            {
+                "model_name": model_name,
+                "annualized_return": float(wealth.iloc[-1] ** (1 / years) - 1),
+                "annualized_volatility": vol * math.sqrt(252.0),
+                "sharpe_ratio": float(returns.mean() / vol * math.sqrt(252.0)),
+                "max_drawdown": float((wealth / wealth.cummax() - 1).min()),
+                "average_gross_exposure": float(by_date["position_gross_exposure"].sum().mean()),
+                "average_daily_turnover": float(by_date["turnover"].sum().mean()),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=Path("data") / "pit_pair_prices.csv")
+    parser.add_argument("--selection", type=Path, default=Path("data") / "pit_pair_selection.csv")
+    parser.add_argument("--start-year", type=int, default=2014)
+    parser.add_argument("--end-year", type=int, default=2023)
+    parser.add_argument("--train-years", type=int, default=4)
+    parser.add_argument("--transaction-cost-bps", type=float, default=5.0)
+    parser.add_argument("--target-portfolio-gross", type=float, default=2.0)
+    parser.add_argument("--max-pair-gross", type=float, default=0.40)
+    parser.add_argument(
+        "--include-v1",
+        action="store_true",
+        help="Also run the tuned V1 model (adds its 27-combination search per year).",
+    )
+    parser.add_argument("--output-dir", type=Path, default=Path("backtest_results") / "vol_scaled_naive_v2")
+    args = parser.parse_args()
+
+    data = pd.read_csv(args.input, parse_dates=["date"])
+    selection = pd.read_csv(args.selection)
+    cost = args.transaction_cost_bps
+
+    daily_frames = []
+    chosen = []
+    for fold_id, year in enumerate(range(args.start_year, args.end_year + 1), start=1):
+        pairs = selection.loc[selection["test_year"] == year, "pair_id"].unique()
+        year_data = data.loc[data["pair_id"].isin(pairs)]
+        params, _ = select_parameters_v2(year_data, year, cost, args.train_years)
+        chosen.append({"test_year": year, "model": "v2", **params, "pairs": ",".join(pairs)})
+        print(f"{year} v2: {params}", flush=True)
+        models = {
+            "naive_zscore": NaivePairsTradingModel,
+            "naive_ewma_z": VolScaledNaivePairsTradingModel,
+        }
+        if args.include_v1:
+            v1_params, _ = select_parameters(year_data, year, cost, args.train_years)
+            chosen.append({"test_year": year, "model": "v1", **v1_params, "pairs": ",".join(pairs)})
+            print(f"{year} v1: {v1_params}", flush=True)
+            models["vol_scaled_naive"] = lambda p=v1_params: VolScaledNaivePairsTradingModel(**p)
+        models["vol_scaled_naive_v2"] = lambda p=params: VolScaledNaivePairsTradingModelV2(**p)
+        for name, factory in models.items():
+            daily = run_walk_forward_backtest(
+                year_data,
+                model_factory=factory,
+                start_year=year,
+                end_year=year,
+                train_years=args.train_years,
+                transaction_cost_bps=cost,
+                model_name=name,
+            )
+            daily["fold_id"] = fold_id
+            daily_frames.append(daily)
+
+    # All models on the same footing: per-pair weights (at most 1 gross),
+    # equal-weight average across pairs.
+    daily = pd.concat(daily_frames, ignore_index=True)
+    summary = summarize_backtest(daily)
+    comparison = portfolio_metrics(daily)
+    robustness = robustness_table(daily, baseline="naive_zscore")
+
+    # V2 as an actual portfolio with a gross-exposure target, summed across pairs.
+    portfolio_daily = apply_portfolio_sizing(
+        daily.loc[daily["model_name"] == "vol_scaled_naive_v2"],
+        target_gross_exposure=args.target_portfolio_gross,
+        max_pair_gross_exposure=args.max_pair_gross,
+        transaction_cost_bps=cost,
+    )
+    portfolio = portfolio_sum_metrics(portfolio_daily)
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{cost:g}bps"
+    daily.to_csv(args.output_dir / f"daily_results{suffix}.csv", index=False)
+    portfolio_daily.to_csv(args.output_dir / f"portfolio_daily{suffix}.csv", index=False)
+    summary.to_csv(args.output_dir / f"summary{suffix}.csv", index=False)
+    comparison.to_csv(args.output_dir / f"comparison{suffix}.csv", index=False)
+    robustness.to_csv(args.output_dir / f"robustness{suffix}.csv", index=False)
+    portfolio.to_csv(args.output_dir / f"portfolio{suffix}.csv", index=False)
+    pd.DataFrame(chosen).to_csv(args.output_dir / f"selected_parameters{suffix}.csv", index=False)
+    with pd.option_context("display.width", 220, "display.precision", 3):
+        print(comparison.to_string(index=False))
+        print()
+        print(robustness.to_string(index=False))
+        print()
+        print(portfolio.to_string(index=False))
+
+
+if __name__ == "__main__":
+    main()
