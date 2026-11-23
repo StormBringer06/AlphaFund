@@ -1,0 +1,2 @@
+cost_bps,observations,start,end,total_return,annualized_return,annualized_volatility,sharpe_ratio,max_drawdown,average_gross_exposure,average_daily_turnover,total_transaction_cost
+0.0,726,2024-01-02,2026-11-20,0.036516705623089285,0.012527090381819539,0.02864939080200182,0.44885686744314574,-0.04913608022533911,0.6143495108076762,0.06183309855622148,0.0
