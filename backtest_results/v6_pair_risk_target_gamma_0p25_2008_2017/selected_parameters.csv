@@ -1,0 +1,11 @@
+test_year,vix_scale,band,band_vix_scale,pair_vol_scale,pair_vol_mode,risk_exponent,pairs
+2008,0.0,0.2,0.0,0.0,risk_target,0.25,xom_cvx
+2009,0.0,0.2,0.0,0.0,risk_target,0.25,"ed_wec,trv_cb,cvx_xom"
+2010,0.25,0.2,0.0,0.0,risk_target,0.25,"ed_wec,wfc_usb,xom_cvx"
+2011,0.0,0.2,0.0,0.0,risk_target,0.25,"jpm_pnc,ed_wec,wfc_usb,noc_gd"
+2012,0.0,0.2,0.0,0.0,risk_target,0.25,"usb_pnc,so_wec,maa_psa,cb_trv,hal_cop"
+2013,0.0,0.2,0.0,0.0,risk_target,0.25,"xel_wec,pnc_usb,jpm_ms,maa_psa,cb_trv"
+2014,0.0,0.2,0.0,0.0,risk_target,0.25,"xel_wec,pnc_usb,trv_cb"
+2015,0.25,0.2,0.0,0.0,risk_target,0.25,"wec_xel,pnc_usb,cb_trv,pg_kmb,jpm_wfc"
+2016,0.25,0.2,0.0,0.0,risk_target,0.25,"xel_wec,pnc_usb,slb_cop,cb_trv,jpm_wfc"
+2017,0.25,0.2,0.0,0.0,risk_target,0.25,"wec_xel,tfc_pnc,pg_pep,csx_nsc,trv_cb"

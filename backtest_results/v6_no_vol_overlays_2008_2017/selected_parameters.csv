@@ -1,0 +1,11 @@
+test_year,vix_scale,band,band_vix_scale,pair_vol_scale,pair_vol_inner_sharpe,pairs
+2008,0.0,0.2,0.0,0.0,1.8052448238075218,xom_cvx
+2009,0.0,0.2,0.0,0.0,2.364424667489289,"ed_wec,trv_cb,cvx_xom"
+2010,0.0,0.2,0.0,0.0,2.044053546041832,"ed_wec,wfc_usb,xom_cvx"
+2011,0.0,0.2,0.0,0.0,1.4701711594588074,"jpm_pnc,ed_wec,wfc_usb,noc_gd"
+2012,0.0,0.2,0.0,0.0,0.7559496105526831,"usb_pnc,so_wec,maa_psa,cb_trv,hal_cop"
+2013,0.0,0.2,0.0,0.0,0.7853463890784663,"xel_wec,pnc_usb,jpm_ms,maa_psa,cb_trv"
+2014,0.0,0.2,0.0,0.0,0.262167988352708,"xel_wec,pnc_usb,trv_cb"
+2015,0.0,0.2,0.0,0.0,-0.059325750831154975,"wec_xel,pnc_usb,cb_trv,pg_kmb,jpm_wfc"
+2016,0.0,0.2,0.0,0.0,1.0003017633568432,"xel_wec,pnc_usb,slb_cop,cb_trv,jpm_wfc"
+2017,0.0,0.2,0.0,0.0,0.8663777281492311,"wec_xel,tfc_pnc,pg_pep,csx_nsc,trv_cb"
