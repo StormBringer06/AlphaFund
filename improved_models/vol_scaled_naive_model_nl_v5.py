@@ -1,14 +1,11 @@
-"""V5: ciaranMaxModel (V3 + walk-forward exit classifier) with V4's dynamic leverage.
+"""V5: nonlinear V3 with a walk-forward exit classifier and dynamic leverage.
 
-1. Signal: ``ciaranMaxModel`` unchanged - BD's V3 (EWMA z-score, VIX overlay,
-   band 0.2, top 5 pairs from the 10-year point-in-time screen) plus Ciaran's
-   ridge exit classifier, which closes an open episode at a checkpoint (days
-   5-120) when its predicted remaining P&L is negative. The yearly classifier
-   weights are loaded from Ciaran's ``models/exit_ridge_weights.json`` (each
-   year trained on pool trades resolved before 1 Jan of that year); V5 never
-   refits them. See ``improved_models/ciaranMaxModel.py`` and
-   ``improved_models/exit_model.py``.
-2. Leverage: V4's dynamic portfolio volatility target. Every weight is scaled
+1. Signal: nonlinear V3 uses signed-squared EWMA z-score sizing, an annual VIX
+   overlay, band 0.2, and the yearly point-in-time screened pairs. Annual VIX
+   parameters are selected using nonlinear inner walk-forward results. Ciaran's
+   saved ridge exit weights close an open episode at a checkpoint (days 5-120)
+   when predicted remaining P&L is negative; the weights are not retrained here.
+2. Leverage: dynamic portfolio volatility targeting. Every weight is scaled
    by ``min(target_vol / ewma_vol, max_leverage)``, with ``ewma_vol`` the EWMA
    (``--vol-halflife``) volatility of V5's own unlevered equal-weight portfolio
    returns up to that close, applied to the next day. The EWMA is seeded with
@@ -31,13 +28,45 @@ import warnings
 import pandas as pd
 
 from backtest import apply_positions_to_returns, run_walk_forward_backtest
-from improved_models.ciaranMaxModel import EXIT_RULE, apply_exit_targets, run_v3
+from improved_models.ciaranMaxModel import EXIT_RULE, apply_exit_targets
 from improved_models.exit_model import (
     RIDGE_WEIGHTS_PATH, load_context, load_ridge_weights, ridge_decisions, traded_checkpoints,
 )
 from improved_models.regression_model import portfolio_metrics
-from improved_models.vol_scaled_naive_model_nl import VolScaledNaivePairsTradingModel, robustness_table
+from improved_models.vol_scaled_naive_model_nl import (
+    VolScaledNaivePairsTradingModel,
+    robustness_table,
+    select_parameters,
+)
+from improved_models.vol_scaled_naive_model_nl_v3 import V3_GRID
 from improved_models.vol_scaled_naive_model_nl_v4 import dynamic_leverage, lever, portfolio_returns
+
+
+def run_nonlinear_v3(
+    data: pd.DataFrame, selection: pd.DataFrame, years: range, train_years: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Run the nonlinear signal with V3's annual parameter-selection scheme."""
+    frames, chosen = [], []
+    for fold_id, year in enumerate(years, start=1):
+        pairs = selection.loc[selection["test_year"] == year, "pair_id"].unique()
+        year_data = data.loc[data["pair_id"].isin(pairs)]
+        params, _ = select_parameters(
+            year_data, year, 0.0, train_years, grid=V3_GRID
+        )
+        chosen.append({"test_year": year, **params, "pairs": ",".join(pairs)})
+        print(f"  {year}: {params}", flush=True)
+        daily = run_walk_forward_backtest(
+            year_data,
+            model_factory=lambda p=params: VolScaledNaivePairsTradingModel(**p),
+            start_year=year,
+            end_year=year,
+            train_years=train_years,
+            transaction_cost_bps=0.0,
+            model_name="vol_scaled_naive_v3_nl",
+        )
+        daily["fold_id"] = fold_id
+        frames.append(daily)
+    return pd.concat(frames, ignore_index=True), pd.DataFrame(chosen)
 
 
 def seed_returns(
@@ -108,8 +137,8 @@ def main() -> None:
     selection = pd.read_csv(args.selection)
     years = range(args.start_year, args.end_year + 1)
 
-    print("Running V3 ...", flush=True)
-    v3_gross, params = run_v3(data, selection, years, args.train_years)
+    print("Running nonlinear V3 ...", flush=True)
+    v3_gross, params = run_nonlinear_v3(data, selection, years, args.train_years)
     first_params = params.iloc[0][["vix_scale", "band", "band_vix_scale"]].astype(float).to_dict()
     seed = seed_returns(
         data, selection, first_params, args.start_year, args.train_years, args.inner_test_years

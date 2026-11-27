@@ -6,7 +6,9 @@ Per pair, each trading day (close-of-day targets):
    ``lookback_years``, refit every ``refit_interval_months`` from data strictly
    before the refit date. ``z_t = (spread_t - m_{t-1}) / s_{t-1}`` with ``m`` /
    ``s`` the EWMA mean / std of the spread (half-life ``zscore_halflife``).
-2. **Base signal** (as the naive model): ``clip(-z / full_exposure_zscore, -1, 1)``.
+2. **Nonlinear base signal.** The signed squared z-score is ``sign(z) * z**2``;
+   sizing is ``-tanh(signed_squared_z / full_exposure_zscore)`` so the signal
+   remains mean-reverting on both sides of the spread.
 3. **VIX size overlay.** ``vix_pct`` is today's VIX percentile within the
    trailing ``vix_window`` days. The signal is multiplied by
    ``clip(1 + 2 * vix_scale * (vix_pct - 0.5), 0.5, 1.5)`` - larger in
@@ -49,7 +51,7 @@ class _Hedge:
 
 
 class VolScaledNaivePairsTradingModel:
-    """Naive z-score sizing plus VIX size overlay and VIX no-trade band."""
+    """Signed nonlinear z-score sizing with VIX overlay and no-trade band."""
 
     def __init__(
         self,
@@ -175,7 +177,9 @@ class VolScaledNaivePairsTradingModel:
         out["hedge_ratio"] = hedge.hedge_ratio
         out["spread"] = spread
         out["spread_zscore"] = (spread - mean) / std.where(std > 0)
-        out["spread_zscore1"] = (spread - mean)**2 / std.where(std > 0)
+        out["spread_zscore1"] = (
+            np.sign(out["spread_zscore"]) * out["spread_zscore"].pow(2)
+        )
         out["vix_pct"] = (
             out["vix"]
             .rolling(self.vix_window, min_periods=self.vix_window // 4)

@@ -1,10 +1,7 @@
-"""V3: the V2 features that survived ablation, on point-in-time screened pairs.
+"""Nonlinear V3 on point-in-time screened pairs.
 
-The V2 ablation (``improved_models/v2_ablation.py``) found that vol targeting,
-the pair-quality gate and a 60-day z-score half-life did not improve on the
-EWMA z-score model, while the no-trade band and the VIX size overlay did. V3
-therefore keeps only those two on top of the EWMA z-score (half-life 120), which
-is exactly ``VolScaledNaivePairsTradingModel`` with:
+This variant applies signed-squared z-score sizing to the EWMA spread z-score
+(half-life 120), while retaining the no-trade band and VIX size overlay:
 
 * ``band = 0.2`` fixed (no band VIX scaling) - it mainly cuts turnover;
 * ``vix_scale`` chosen each year from {0, 0.25} by an inner walk-forward on the
