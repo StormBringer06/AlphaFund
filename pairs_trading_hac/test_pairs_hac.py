@@ -154,6 +154,10 @@ def test_annual_means_are_descriptive_and_use_actual_dates(date_type):
     [1, 2, 3], ["bad", "worse", "invalid"],
     ["2020-01-01T12:00", "2020-01-02T12:00", "2020-01-03T12:00"],
     np.array(["2020-01-01", "NaT", "2020-01-03"], dtype="datetime64[D]"),
+    # Coarser-than-daily units must not pass as daily dates.
+    np.array(["2020-01", "2020-02", "2020-03"], dtype="datetime64[M]"),
+    np.array(["2020-01-02", "2020-01-09", "2020-01-16"], dtype="datetime64[D]").astype("datetime64[W]"),
+    np.array(["2020", "2021", "2022"], dtype="datetime64[Y]"),
     [datetime(2020, 1, j, tzinfo=timezone.utc) for j in [1, 2, 3]],
 ])
 def test_bad_dates(dates):

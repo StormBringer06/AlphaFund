@@ -122,6 +122,10 @@ def annual_mean_checks(naive_returns, vix_returns, dates) -> list[dict]:
     parsed = []
     for value in raw:
         if isinstance(value, np.datetime64):
+            # Coarser-than-daily units (year, month, week) cast to their first
+            # day and would otherwise compare equal, passing as daily dates.
+            if np.datetime_data(value.dtype)[0] in ("Y", "M", "W", "generic"):
+                raise ValueError("dates must be valid daily dates without times.")
             if np.isnat(value) or value != value.astype("datetime64[D]"):
                 raise ValueError("dates must be valid daily dates without times.")
             text = str(value.astype("datetime64[D]"))
