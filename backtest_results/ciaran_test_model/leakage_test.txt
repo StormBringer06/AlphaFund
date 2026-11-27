@@ -1,0 +1,12 @@
+cutoff: 2015-06-30
+dates compared: 2641 (2005-01-03 .. 2015-06-30)
+screens identical: True
+pair selections and thresholds identical: True
+max |position difference|: 0.000e+00
+PASS: True
+cutoff: 2019-06-30
+dates compared: 3647 (2005-01-03 .. 2019-06-28)
+screens identical: True
+pair selections and thresholds identical: True
+max |position difference|: 0.000e+00
+PASS: True
