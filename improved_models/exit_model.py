@@ -323,6 +323,10 @@ def ridge_decisions(models: dict, traded_cp: pd.DataFrame, years) -> pd.DataFram
         dec["predicted_remaining"] = pred
         dec["ridge<0"] = pred < 0
         out.append(dec)
+    if not out:
+        return pd.DataFrame(columns=[
+            "ep_key", "checkpoint", "remaining_pnl", "predicted_remaining", "ridge<0"
+        ])
     return pd.concat(out, ignore_index=True)
 
 

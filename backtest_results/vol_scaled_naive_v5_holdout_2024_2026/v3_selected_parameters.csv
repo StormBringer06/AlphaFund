@@ -1,0 +1,4 @@
+test_year,vix_scale,band,band_vix_scale,pairs
+2024,0.0,0.2,0.0,"v_ma,aep_xel,pnc_bac,lmt_noc,trv_cb"
+2025,0.0,0.2,0.0,"v_ma,pnc_bac,mdlz_pep,xel_wec,nsc_unp"
+2026,0.0,0.2,0.0,"ma_v,pnc_bac,xel_wec,all_trv,duk_so"
