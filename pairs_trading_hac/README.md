@@ -266,7 +266,7 @@ These sources establish the methodology and its limitations. They do not validat
 
 The delivered tests compare the fitted SE with an independent scalar Bartlett calculation across five lag lengths, check the uncorrected lag-zero normalization, negative-mean tail direction, known decisions at all five levels, confidence-bound agreement, invariance to common shocks/unit changes, protection of input arrays, invalid inputs and optional annual/lag checks. They run without your data or network access. The example CSV and direct script are also executed to verify the complete usage path.
 
-Verification result after audit: **80 tests passed**, using Python 3.12.14, NumPy 2.5.5, SciPy 1.18.1 and statsmodels 0.15.0. The long-array test uses 50,000 observations; additional tests cover masked inputs, extreme positive unit rescaling, a second independent Bartlett variance identity, stable annual mean accumulation and the annual grouped test. A separate randomized check covered 138 covariance cases. Both runnable examples were exercised during the audit.
+Verification result after audit: **83 tests passed**, using Python 3.12.14, NumPy 2.5.5, SciPy 1.18.1 and statsmodels 0.15.0. The long-array test uses 50,000 observations; additional tests cover masked inputs, extreme positive unit rescaling, a second independent Bartlett variance identity, stable annual mean accumulation and the annual grouped test. A separate randomized check covered 138 covariance cases. Both runnable examples were exercised during the audit.
 
 Rerun the tests after changing dependencies or the estimator. Numerical tests establish implementation correctness under their fixtures; they do not prove that your actual return process satisfies the assumptions.
 

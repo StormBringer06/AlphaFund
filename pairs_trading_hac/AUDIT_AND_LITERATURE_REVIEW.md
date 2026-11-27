@@ -41,7 +41,7 @@ The installed statsmodels covariance source was inspected directly, as well as t
 
 ## Verification beyond checking the library against itself
 
-The automated suite passes **80 tests**. Numerical checks include a direct scalar autocovariance calculation and a second independent identity: Bartlett covariance can be constructed from squared zero-padded moving sums of residuals. That second construction tests the lag weights, edge treatment and normalization without repeating an autocovariance loop or calling another statsmodels covariance routine.
+The automated suite passes **83 tests**. Numerical checks include a direct scalar autocovariance calculation and a second independent identity: Bartlett covariance can be constructed from squared zero-padded moving sums of residuals. That second construction tests the lag weights, edge treatment and normalization without repeating an autocovariance loop or calling another statsmodels covariance routine.
 
 A separate randomized verification covered **138 combinations** of sample size, lag and non-Gaussian observations, including maximum admissible lags. The largest relative SE discrepancy against the moving-sum identity was approximately **5.3 × 10^-15**. Tests also cover signed tails, known significance decisions, confidence bounds, common-shock cancellation, input immutability, long arrays, masked data, invalid settings and optional grouped inference against an independent SciPy t-test.
 
