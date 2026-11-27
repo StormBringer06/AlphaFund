@@ -1,4 +1,4 @@
-"""Trading signal: BD's V3 vol-scaled pairs model.
+"""Trading signal: vol-scaled pairs model with a low-volatility size boost.
 
 Per pair, at each close:
 
@@ -6,15 +6,23 @@ Per pair, at each close:
    refit every six months from data strictly before the refit date.
 2. **z-score.** ``z = (spread - m) / s`` with ``m`` / ``s`` the EWMA mean and std
    of the spread (half-life 120 days), lagged one day.
-3. **Size.** ``clip(-z / 2, -1, 1)`` times a VIX overlay
-   ``clip(1 + 2 * vix_scale * (vix_pct - 0.5), 0.5, 1.5)`` (``vix_pct`` = VIX
-   percentile over the last 504 days), capped at gross exposure 1.
+3. **Size.** ``clip(-z / 2, -1, 1)`` times two multipliers, capped at gross
+   exposure 1:
+
+   * **VIX overlay** ``clip(1 + 2 * vix_scale * (vix_pct - 0.5), 0.5, 1.5)``
+     (``vix_pct`` = VIX percentile over the last 504 days);
+   * **low-volatility boost** ``clip(reference_vol / spread_vol, 1, 1.5)``:
+     ``spread_vol`` is the 60-day std of the pair's daily spread return and
+     ``reference_vol`` its median over the previous 504 days (both lagged one
+     day), so a pair is sized up - never down - while its spread is calmer
+     than usual.
 4. **No-trade band.** The position only moves when the target differs by more
    than 0.2.
 
 ``vix_scale`` is chosen each test year from {0, 0.25} by an inner walk-forward
-on the four years before it (``select_parameters``). Weights are close-of-day
-targets; the backtester applies them to the next day's returns.
+on the four years before it (``select_parameters``, run without the boost).
+Weights are close-of-day targets; the backtester applies them to the next day's
+returns.
 """
 
 from __future__ import annotations
@@ -29,7 +37,7 @@ import pandas as pd
 from backtest import run_walk_forward_backtest
 
 
-V3_GRID = {
+PARAMETER_GRID = {
     "vix_scale": (0.0, 0.25),
     "band": (0.2,),
     "band_vix_scale": (0.0,),
@@ -66,7 +74,10 @@ class _Hedge:
 
 
 class VolScaledNaivePairsTradingModel:
-    """Naive z-score sizing plus VIX size overlay and VIX no-trade band."""
+    """z-score sizing with VIX and low-volatility multipliers and a no-trade band.
+
+    ``vol_boost_cap=1`` switches the low-volatility boost off.
+    """
 
     def __init__(
         self,
@@ -77,6 +88,9 @@ class VolScaledNaivePairsTradingModel:
         full_exposure_zscore: float = 2.0,
         max_gross_exposure: float = 1.0,
         vix_window: int = 504,
+        vol_boost_cap: float = 1.5,
+        vol_boost_window: int = 60,
+        vol_boost_reference_window: int = 504,
         lookback_years: int = 2,
         refit_interval_months: int = 6,
         min_train_observations: int = 120,
@@ -94,6 +108,12 @@ class VolScaledNaivePairsTradingModel:
             )
         if vix_window < 20:
             raise ValueError("vix_window must be at least 20.")
+        if not math.isfinite(vol_boost_cap) or not 1.0 <= vol_boost_cap <= 2.0:
+            raise ValueError("vol_boost_cap must be between 1 and 2.")
+        if vol_boost_window < 5 or vol_boost_reference_window < vol_boost_window:
+            raise ValueError(
+                "vol_boost_window must be >= 5 and at most vol_boost_reference_window."
+            )
         if lookback_years < 1 or refit_interval_months < 1:
             raise ValueError("lookback_years and refit_interval_months must be >= 1.")
 
@@ -104,6 +124,9 @@ class VolScaledNaivePairsTradingModel:
         self.full_exposure_zscore = float(full_exposure_zscore)
         self.max_gross_exposure = float(max_gross_exposure)
         self.vix_window = vix_window
+        self.vol_boost_cap = float(vol_boost_cap)
+        self.vol_boost_window = vol_boost_window
+        self.vol_boost_reference_window = vol_boost_reference_window
         self.lookback_years = lookback_years
         self.refit_interval_months = refit_interval_months
         self.min_train_observations = min_train_observations
@@ -197,6 +220,19 @@ class VolScaledNaivePairsTradingModel:
             .rolling(self.vix_window, min_periods=self.vix_window // 4)
             .rank(pct=True)
         )
+        # Low-volatility boost inputs: lagged spread vol and its trailing median.
+        spread_return = out["adjusted_close_a"].pct_change() - hedge.hedge_ratio * (
+            out["adjusted_close_b"].pct_change()
+        )
+        spread_vol = spread_return.rolling(
+            self.vol_boost_window, min_periods=max(5, self.vol_boost_window // 2)
+        ).std().shift(1)
+        reference_vol = spread_vol.rolling(
+            self.vol_boost_reference_window,
+            min_periods=max(20, self.vol_boost_reference_window // 4),
+        ).median().shift(1)
+        out["spread_vol"] = spread_vol
+        out["spread_vol_ratio"] = reference_vol / spread_vol.where(spread_vol > 0)
         return out
 
     def _positions(self, segment: pd.DataFrame, hedge: _Hedge) -> pd.DataFrame:
@@ -204,8 +240,14 @@ class VolScaledNaivePairsTradingModel:
         vix_pct = segment["vix_pct"].fillna(0.5).to_numpy(dtype=float)
         base = np.clip(-z / self.full_exposure_zscore, -1.0, 1.0)
         multiplier = np.clip(1.0 + 2.0 * self.vix_scale * (vix_pct - 0.5), 0.5, 1.5)
+        # Unknown ratio (warm-up) -> no boost; zero spread vol -> full boost.
+        ratio = np.nan_to_num(
+            segment["spread_vol_ratio"].to_numpy(dtype=float),
+            nan=1.0, posinf=self.vol_boost_cap,
+        )
+        boost = np.clip(ratio, 1.0, self.vol_boost_cap)
         target = np.clip(
-            base * multiplier, -self.max_gross_exposure, self.max_gross_exposure
+            base * multiplier * boost, -self.max_gross_exposure, self.max_gross_exposure
         )
         target = np.nan_to_num(target, nan=0.0)  # flat during EWMA warm-up
         band = self.band * np.clip(
@@ -224,6 +266,7 @@ class VolScaledNaivePairsTradingModel:
 
         scale = 1.0 + abs(hedge.hedge_ratio)
         segment["vix_multiplier"] = multiplier
+        segment["vol_boost"] = boost
         segment["band_width"] = band
         segment["target_signal"] = target
         segment["rebalanced"] = traded
@@ -275,7 +318,8 @@ def select_parameters(
     transaction_cost_bps: float,
     train_years: int = 4,
     inner_test_years: int = 2,
-    grid: dict[str, tuple[float, ...]] = V3_GRID,
+    grid: dict[str, tuple[float, ...]] = PARAMETER_GRID,
+    vol_boost_cap: float = 1.0,
 ) -> tuple[dict[str, float], pd.DataFrame]:
     """Pick overlay/band parameters on the training window before ``test_year``.
 
@@ -283,6 +327,9 @@ def select_parameters(
     ``train_years`` before ``test_year`` (each inner year trained on the years
     before it) and maximizes the net Sharpe of the equal-weight portfolio of all
     pairs in ``data``. Only data before ``test_year`` is used.
+
+    The search runs with the low-volatility boost off (``vol_boost_cap=1``), as
+    in V5; the chosen values are then traded with the boost on.
     """
     inner_train_years = train_years - inner_test_years
     data = data.loc[
@@ -296,7 +343,9 @@ def select_parameters(
             continue  # same as band_vix_scale = 0
         daily = run_walk_forward_backtest(
             data,
-            model_factory=lambda p=params: VolScaledNaivePairsTradingModel(**p),
+            model_factory=lambda p=params: VolScaledNaivePairsTradingModel(
+                **p, vol_boost_cap=vol_boost_cap
+            ),
             start_year=test_year - inner_test_years,
             end_year=test_year - 1,
             train_years=inner_train_years,
@@ -308,19 +357,27 @@ def select_parameters(
     return {k: float(v) for k, v in best.items()}, scores
 
 
-def run_v3(data: pd.DataFrame, selection: pd.DataFrame, years: range, train_years: int) -> tuple:
-    """BD's V3: yearly parameter search at 0 bps, then the walk-forward backtest."""
+def run_signal(
+    data: pd.DataFrame, selection: pd.DataFrame, years: range, train_years: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Yearly parameter search at 0 bps, then each test year's walk-forward run.
+
+    Returns the gross daily results (one fold per test year) and the chosen
+    parameters per year.
+    """
     frames, chosen = [], []
     for fold_id, year in enumerate(years, start=1):
         pairs = selection.loc[selection["test_year"] == year, "pair_id"].unique()
+        if not len(pairs):
+            raise ValueError(f"No selected pairs for test year {year}.")
         year_data = data.loc[data["pair_id"].isin(pairs)]
-        params, _ = select_parameters(year_data, year, 0.0, train_years, grid=V3_GRID)
+        params, _ = select_parameters(year_data, year, 0.0, train_years)
         chosen.append({"test_year": year, **params, "pairs": ",".join(pairs)})
         print(f"  {year}: {params}", flush=True)
         daily = run_walk_forward_backtest(
             year_data, model_factory=lambda p=params: VolScaledNaivePairsTradingModel(**p),
             start_year=year, end_year=year, train_years=train_years,
-            transaction_cost_bps=0.0, model_name="vol_scaled_naive_v3",
+            transaction_cost_bps=0.0, model_name="signal",
         )
         daily["fold_id"] = fold_id
         frames.append(daily)

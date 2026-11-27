@@ -3,8 +3,13 @@
 Every pair weight is multiplied by ``min(target_vol / ewma_vol, max_leverage)``,
 where ``ewma_vol`` is the EWMA volatility of the strategy's own *unlevered*
 equal-weight portfolio returns up to that close (applied to the next day, like
-any other target). The EWMA is seeded with v3's inner walk-forward returns for
-the two years before the first test year. Leverage changes count as turnover.
+any other target). The EWMA is seeded with the signal's inner walk-forward
+returns for the two years before the first test year. Leverage changes count
+as turnover.
+
+In ``main.py`` the returns fed in are those after the exit classifier and the
+VIX floor (the seed has the VIX floor applied), so leverage targets the
+volatility of what is actually held.
 """
 
 from __future__ import annotations
@@ -56,7 +61,7 @@ def seed_returns(
     data: pd.DataFrame, selection: pd.DataFrame, params: dict, first_year: int,
     train_years: int, inner_test_years: int,
 ) -> pd.DataFrame:
-    """V3's inner walk-forward daily results for the years before ``first_year``."""
+    """The signal's inner walk-forward daily results for the years before ``first_year``."""
     pairs = selection.loc[selection["test_year"] == first_year, "pair_id"].unique()
     year_data = data.loc[data["pair_id"].isin(pairs)]
     training = year_data.loc[
@@ -85,6 +90,8 @@ def levered(daily: pd.DataFrame, seed: pd.DataFrame, name: str, cost: float,
     leverage = dynamic_leverage(
         history, target_vol, max_leverage, vol_halflife
     ).reindex(dates)
+    if leverage.isna().any():
+        raise ValueError("Leverage is unavailable for some test dates.")
     return lever(daily, leverage, name, cost)
 
 

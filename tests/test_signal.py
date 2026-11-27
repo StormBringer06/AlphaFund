@@ -1,4 +1,4 @@
-"""Tests for the V3 signal (pairs_model.signal)."""
+"""Tests for the signal (pairs_model.signal)."""
 
 import unittest
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from backtest import run_walk_forward_backtest
-from pairs_model.signal import V3_GRID, VolScaledNaivePairsTradingModel as Model, select_parameters
+from pairs_model.signal import PARAMETER_GRID, VolScaledNaivePairsTradingModel as Model, select_parameters
 
 
 def make_data(start="2015-01-01", days=1600, seed=0) -> pd.DataFrame:
@@ -48,8 +48,8 @@ class VolScaledNaiveModelTests(unittest.TestCase):
         cols = ["spread_zscore", "vix_pct", "target_weight_a", "target_weight_b"]
         pd.testing.assert_frame_equal(full.iloc[:200][cols], partial[cols])
 
-    def test_defaults_match_naive_sizing_on_ewma_z(self):
-        out = Model().fit(self.train).predict(self.test)
+    def test_without_boost_sizing_is_naive_on_ewma_z(self):
+        out = Model(vol_boost_cap=1.0).fit(self.train).predict(self.test)
         expected = np.clip(-out["spread_zscore"] / 2.0, -1, 1)
         np.testing.assert_allclose(out["signal"], expected)
         np.testing.assert_allclose(
@@ -58,9 +58,28 @@ class VolScaledNaiveModelTests(unittest.TestCase):
         self.assertAlmostEqual(out["spread_zscore"].std(), 1.0, delta=0.4)
 
     def test_vix_overlay_scales_with_percentile(self):
-        out = Model(vix_scale=0.5).fit(self.train).predict(self.test)
+        out = Model(vix_scale=0.5, vol_boost_cap=1.0).fit(self.train).predict(self.test)
         np.testing.assert_allclose(out["vix_multiplier"], 0.5 + out["vix_pct"])
         self.assertTrue((out["target_gross_exposure"] <= 1 + 1e-12).all())
+
+    def test_low_vol_boost_only_sizes_up_to_the_cap(self):
+        out = Model().fit(self.train).predict(self.test)
+        self.assertTrue((out["vol_boost"] >= 1.0).all() and (out["vol_boost"] <= 1.5).all())
+        self.assertTrue((out["vol_boost"] > 1.0).any())
+        ratio = out["spread_vol_ratio"]
+        np.testing.assert_allclose(out["vol_boost"][ratio.notna()], ratio.dropna().clip(1.0, 1.5))
+        expected = np.clip(np.clip(-out["spread_zscore"] / 2.0, -1, 1) * out["vol_boost"], -1, 1)
+        np.testing.assert_allclose(out["signal"], np.nan_to_num(expected))
+
+    def test_low_vol_boost_uses_lagged_spread_vol(self):
+        out = Model().fit(self.train).predict(self.test)
+        spread_return = (self.data["adjusted_close_a"].pct_change()
+                         - out["hedge_ratio"].iloc[0] * self.data["adjusted_close_b"].pct_change())
+        dates = pd.Series(self.data["date"].to_numpy())
+        lagged = spread_return.rolling(60, min_periods=30).std().shift(1)
+        first = out.loc[out["beta_refit_date"] == out["beta_refit_date"].iloc[0]]
+        on_dates = lagged[dates.isin(first["date"]).to_numpy()].to_numpy()
+        np.testing.assert_allclose(first["spread_vol"].to_numpy(), on_dates)
 
     def test_band_reduces_trading_and_widens_when_calm(self):
         daily = Model().fit(self.train).predict(self.test)
@@ -84,13 +103,15 @@ class VolScaledNaiveModelTests(unittest.TestCase):
             Model(vix_scale=0.6)
         with self.assertRaises(ValueError):
             Model(band=-0.1)
+        with self.assertRaises(ValueError):
+            Model(vol_boost_cap=0.9)
 
     def test_select_parameters_uses_only_training_window(self):
         params, scores = select_parameters(
             self.data, test_year=2020, transaction_cost_bps=5.0, train_years=4
         )
         self.assertEqual(set(params), {"vix_scale", "band", "band_vix_scale"})
-        self.assertEqual(len(scores), int(np.prod([len(v) for v in V3_GRID.values()])))
+        self.assertEqual(len(scores), int(np.prod([len(v) for v in PARAMETER_GRID.values()])))
         # Changing data from the test year onward must not change the choice.
         altered = self.data.copy()
         late = altered["date"] >= pd.Timestamp("2020-01-01")

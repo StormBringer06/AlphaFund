@@ -1,4 +1,10 @@
 test_year,vix_scale,band,band_vix_scale,pairs
+2008,0.0,0.2,0.0,xom_cvx
+2009,0.0,0.2,0.0,"ed_wec,trv_cb,cvx_xom"
+2010,0.25,0.2,0.0,"ed_wec,wfc_usb,xom_cvx"
+2011,0.0,0.2,0.0,"jpm_pnc,ed_wec,wfc_usb,noc_gd"
+2012,0.0,0.2,0.0,"usb_pnc,so_wec,maa_psa,cb_trv,hal_cop"
+2013,0.0,0.2,0.0,"xel_wec,pnc_usb,jpm_ms,maa_psa,cb_trv"
 2014,0.0,0.2,0.0,"xel_wec,pnc_usb,trv_cb"
 2015,0.25,0.2,0.0,"wec_xel,pnc_usb,cb_trv,pg_kmb,jpm_wfc"
 2016,0.25,0.2,0.0,"xel_wec,pnc_usb,slb_cop,cb_trv,jpm_wfc"
@@ -9,3 +15,6 @@ test_year,vix_scale,band,band_vix_scale,pairs
 2021,0.0,0.2,0.0,"ess_udr,lmt_noc,trv_all,ko_pep,tfc_pnc"
 2022,0.25,0.2,0.0,"ess_udr,bac_pnc,mdlz_pep,all_cb,wec_xel"
 2023,0.25,0.2,0.0,"bac_pnc,mdlz_pep,wec_xel,unp_nsc,trv_cb"
+2024,0.0,0.2,0.0,"v_ma,aep_xel,pnc_bac,lmt_noc,trv_cb"
+2025,0.0,0.2,0.0,"v_ma,pnc_bac,mdlz_pep,xel_wec,nsc_unp"
+2026,0.0,0.2,0.0,"ma_v,pnc_bac,xel_wec,all_trv,duk_so"

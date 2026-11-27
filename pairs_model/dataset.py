@@ -7,9 +7,10 @@
 * ``earnings_dates.csv`` - quarterly report times, reported EPS, consensus
   and surprise for every universe ticker (inputs to the exit classifier).
 
-The committed files cover 2014-2023. To extend, e.g. for a 2024-2025 test::
+The committed files cover test years 2008-2026 (prices from 1998 to
+2026-11-20). To rebuild them from scratch, or extend them::
 
-    python -m pairs_model.dataset --end-year 2025 --refresh --earnings
+    python -m pairs_model.dataset --end-year 2026 --refresh --earnings
 
 Remaining bias: the universe is today's list of large caps, so survivorship
 bias is reduced (pairs are re-screened yearly) but not removed.
@@ -112,8 +113,8 @@ def download_earnings(tickers: list[str], request_delay: float = 3.0) -> pd.Data
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--start-year", type=int, default=2014, help="First test year.")
-    parser.add_argument("--end-year", type=int, default=2023, help="Last test year.")
+    parser.add_argument("--start-year", type=int, default=2008, help="First test year.")
+    parser.add_argument("--end-year", type=int, default=2026, help="Last test year.")
     parser.add_argument("--screen-years", type=int, default=10)
     parser.add_argument("--count", type=int, default=5, help="Pairs per year.")
     parser.add_argument("--request-delay", type=float, default=5.0)

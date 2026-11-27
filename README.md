@@ -1,37 +1,47 @@
 # AlphaFund
 
 A pairs-trading strategy on same-sector US large caps. The current model,
-**V5**, combines four parts:
+**V7**, combines five parts:
 
 1. **Point-in-time pair selection:** each year trades the top 5 pairs from a
    screen run only on the ten years before it.
-2. **V3 signal:** a vol-scaled mean-reversion signal on each pair's spread.
+2. **Signal:** a vol-scaled mean-reversion signal on each pair's spread, with a
+   VIX overlay and a low-volatility size boost.
 3. **Exit classifier:** closes positions whose remaining P&L is predicted to be
    negative.
-4. **Dynamic leverage:** scales the whole book to an 8% volatility target.
+4. **VIX floor:** holds no positions while VIX is below 12.
+5. **Dynamic leverage:** scales the whole book to an 8% volatility target.
 
-## Results (2014–2023, out of sample)
+## Results
 
-| | V3 (signal only) | **V5** |
+Two separate walk-forward runs: **development 2008–2017** and **holdout
+2018–2026** (to 2026-11-20). Every yearly choice (pairs, signal parameters, exit
+model) uses only data from before that year.
+
+| | Development 2008–2017 | **Holdout 2018–2026** |
 |---|---|---|
-| Sharpe, gross | 0.53 | **0.80** |
-| Sharpe, net of 5 bps costs + 0.5%/yr borrow | 0.35 | **0.54** |
-| Annual return, net | 1.1% | **3.6%** |
-| Volatility | 3.2% | 7.0% |
-| Max drawdown, net | −6.9% | −15.9% |
-| Average leverage | 1.0x | 3.5x |
+| Sharpe, gross | 0.61 | **0.76** |
+| Sharpe, net of 5 bps costs + 0.5%/yr borrow | 0.27 | **0.50** |
+| Annual return, gross | 4.2% | 5.8% |
+| Annual return, net | 1.7% | 3.7% |
+| Volatility | 7.1% | 7.8% |
+| Max drawdown, net | −15.1% | −16.9% |
+| Average leverage | 3.4x | 3.4x |
+| Days flat because VIX < 12 | 275 | 36 |
 
-Net annual returns for V5: 2014 +3.4%, 2015 +4.9%, 2016 +2.5%, 2017 −7.1%,
-2018 −0.3%, 2019 +6.4%, 2020 +3.3%, 2021 +1.0%, 2022 +19.9%, 2023 +3.6%.
+Net annual returns in the holdout: 2018 +1.7%, 2019 +4.9%, 2020 +5.0%,
+2021 +1.7%, 2022 +19.9%, 2023 +4.6%, 2024 −4.0%, 2025 −7.7%, 2026 +8.5%
+(to 20 Nov).
 
-Outputs are written to `results/`: summaries, yearly returns, exit decisions
-and the yearly V3 parameters.
+Outputs are written to `results/`: summaries, yearly returns and Sharpe, exit
+decisions and the yearly signal parameters (daily results are written too but
+not committed).
 
 ## Quick start
 
 ```bash
 python -m pip install -r requirements.txt
-python main.py                           # reproduce the table above (~10 s)
+python main.py                           # reproduce the table above (~15 s)
 python -m pytest tests                   # unit tests
 python -m tests.lookahead_check          # end-to-end look-ahead check (~3 min)
 ```
@@ -40,11 +50,11 @@ Useful options for `main.py`:
 
 | Option | Effect |
 |---|---|
+| `--start-year`, `--end-year` | Run one period instead of development + holdout (data must cover it) |
 | `--cost-bps`, `--borrow-bps` | Trading and short-borrow costs for the net results (default 5 and 50) |
+| `--vix-floor` | VIX level below which the book is flat (default 12) |
 | `--target-vol`, `--max-leverage` | Leverage settings (default 8% and 4x) |
 | `--train-exit-model` | Refit every yearly exit model instead of loading `models/exit_ridge_weights.json` |
-| `--freeze-exit-model YEAR` | Use one fixed exit model for every test year (test years must not be before YEAR, e.g. `2023` for 2024+) |
-| `--start-year`, `--end-year` | Test period (data must cover it) |
 
 ## How it works
 
@@ -59,19 +69,25 @@ same-sector pair is screened on the ten years before Y. A pair passes if:
 - the spread's half-life is between 5 and 75 days
 
 The top 5 passing pairs are picked, with no ticker reused and at most two per
-sector. The screen never sees year Y's data.
+sector (2008–2011 have only 1–4 passing pairs). The screen never sees year Y's
+data.
 
-### 2. Signal: V3 (`pairs_model/signal.py`)
+### 2. Signal (`pairs_model/signal.py`)
 
 1. **Spread:** log A minus a hedge ratio times log B. The hedge ratio is an OLS
    fit on the prior two years, refit every six months.
 2. **z-score:** the spread against its 120-day EWMA mean and std, lagged one day.
-3. **Target position:** `clip(-z/2, -1, 1)`, times a VIX overlay that sizes up
-   when VIX is high relative to its last two years.
+3. **Target position:** `clip(-z/2, -1, 1)` times two multipliers, capped at 1:
+   - **VIX overlay:** sizes up when VIX is high relative to its last two years.
+   - **Low-volatility boost:** `clip(reference vol / spread vol, 1, 1.5)`, where
+     spread vol is the 60-day std of the pair's daily spread return and the
+     reference is its median over the previous 504 days (both lagged one day).
+     A pair is sized up, never down, while its spread is calmer than usual.
 4. **No-trade band:** the position only changes when the target moves by more
    than 0.2.
 
-The VIX overlay strength is re-chosen each year on prior data only.
+The VIX overlay strength (0 or 0.25) is re-chosen each year by an inner
+walk-forward on the four years before it, run on the signal without the boost.
 
 ### 3. Exit classifier (`pairs_model/exit_classifier.py`)
 
@@ -90,25 +106,25 @@ episode's **remaining** P&L from 13 inputs known at that close:
 If the prediction is below zero, the position is closed and stays flat until
 the spread crosses zero.
 
-In practice:
-
-- **What pushes it to hold:** a spread stretched far from fair value, high VIX
-  and sharp spikes, all signs the spread should snap back.
-- **What pushes it to exit:** a gap that keeps widening and a steady trend
-  against the position, signs the relationship has broken.
-
 The classifier is retrained **once a year**: the model for year Y is fitted on
 check-ups from episodes, on every same-sector pair in the universe, that
 **finished before 1 January Y**. It never trains on the strategy's own trades.
-The ten yearly models (2014–2023) are saved as plain numbers in
+The yearly models (2008–2026) are saved as plain numbers in
 `models/exit_ridge_weights.json` and loaded at run time. A missing year is
 fitted automatically.
 
-### 4. Leverage (`pairs_model/leverage.py`)
+### 4. VIX floor (`pairs_model/vix_floor.py`)
+
+After the exit classifier, every target is set to zero on any close where VIX
+is below 12, so the book is flat the next day. Very calm markets have been poor
+for the strategy, and the leverage would otherwise scale up into them.
+
+### 5. Leverage (`pairs_model/leverage.py`)
 
 All weights are scaled by `min(8% / trailing vol, 4)`. The trailing vol is the
-60-day-half-life EWMA volatility of the unlevered portfolio up to that close,
-applied from the next day. Leverage changes are charged as turnover.
+60-day-half-life EWMA volatility of the unlevered portfolio (after exits and
+the VIX floor) up to that close, applied from the next day. Leverage changes
+are charged as turnover.
 
 ### Backtest conventions (`backtest.py`)
 
@@ -120,9 +136,10 @@ applied from the next day. Leverage changes are charged as turnover.
 
 ## No look-ahead
 
-- **Pair choice:** pairs, V3 parameters and the exit classifier for year Y use
-  only data from before 1 January Y.
-- **Daily inputs:** every input to a daily decision uses data up to that close.
+- **Yearly choices:** pairs, signal parameters and the exit classifier for year
+  Y use only data from before 1 January Y.
+- **Daily inputs:** every input to a daily decision (z-score, both multipliers,
+  the VIX floor, leverage) uses data up to that close.
 - **Earnings timing:** a report counts from when the market saw it. A report
   before the open counts that day; one after the close counts the next day.
 - **Unit tests** (`tests/`) check that features and model outputs are unchanged
@@ -133,31 +150,35 @@ applied from the next day. Leverage changes are charged as turnover.
 
 ## Caveats
 
+- **The holdout is not untouched.** The low-volatility boost, the VIX floor
+  level (tried at 0, 10, 12 and 13) and the exit classifier's design were all
+  compared on 2018–2026 results during development. The 0.76 / 0.50 holdout
+  Sharpe is therefore optimistic; only data after 2026-11-20 is truly unseen.
 - **Survivorship bias:** the universe is today's large caps, so the bias is
   reduced (pairs are re-screened yearly) but not removed.
-- **Not yet confirmed on unseen data:** the classifier design was chosen while
-  looking at 2014–2023, so the untouched **2024–2025 holdout** is the real test.
-  To run it, extend the data with
-  `python -m pairs_model.dataset --end-year 2025 --refresh --earnings`, then run
-  `python main.py --start-year 2024 --end-year 2025`. The 2024 and 2025 exit
-  models are fitted automatically from data before each year; add
-  `--freeze-exit-model 2023` to use only the existing 2023 model.
+- **Recent years are weak:** the strategy lost money in 2024 and 2025 (net
+  −4.0% and −7.7%); most of the holdout's return comes from 2022 and 2026.
 - **Leverage cost:** leverage raises return and volatility together; the net
-  max drawdown is about −16%.
+  max drawdown is about −17%.
+- **Saved exit weights:** `models/exit_ridge_weights.json` was fitted on
+  universe prices starting in 2004. `--train-exit-model` refits on the
+  committed prices (from 1998), which gives slightly different predictions
+  but identical exit decisions and returns.
 
 ## Repository layout
 
 ```
-main.py                      run V5
+main.py                      run V7
 backtest.py                  walk-forward backtester
 pairs_model/
   universe.py                stock universe and pair screen
   dataset.py                 builds data/ (yearly screen, pair prices, earnings)
-  signal.py                  V3 signal and its yearly parameter search
+  signal.py                  signal (VIX overlay, low-vol boost) and its yearly parameter search
   exit_classifier.py         exit classifier: features, training, decisions
+  vix_floor.py               flat book while VIX is below the floor
   leverage.py                dynamic volatility-targeted leverage
   metrics.py                 portfolio statistics
-models/exit_ridge_weights.json   yearly exit models (2014-2023)
+models/exit_ridge_weights.json   yearly exit models (2008-2026)
 data/                        universe prices, yearly pairs, pair prices, earnings
 results/                     outputs of main.py
 tests/                       unit tests and the end-to-end look-ahead check

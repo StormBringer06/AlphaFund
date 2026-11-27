@@ -1,1 +1,1 @@
-"""AlphaFund V5 pairs-trading model (see README.md)."""
+"""AlphaFund V7 pairs-trading model (see README.md)."""

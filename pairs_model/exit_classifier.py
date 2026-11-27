@@ -1,4 +1,4 @@
-"""Exit classifier: closes v3 positions whose remaining P&L is predicted negative.
+"""Exit classifier: closes positions whose remaining P&L is predicted negative.
 
 An *episode* is a run of same-sign position in one pair. At check-ups on days
 5, 10, 20, 40, 60, 90 and 120 of an open episode, a ridge regression predicts
@@ -61,7 +61,7 @@ def _half_life(phi: pd.Series) -> pd.Series:
 
 
 def spread_features(closes: pd.DataFrame, vix_pct: pd.Series, a: str, b: str) -> pd.DataFrame:
-    """v3's spread for one pair, rebuilt causally, plus the classifier's spread inputs.
+    """The signal's spread for one pair, rebuilt causally, plus the classifier's spread inputs.
 
     Hedge: OLS of log A on log B over the two years before each 1 Jan / 1 Jul
     refit; the spread history is recomputed with each new hedge and z-scored
@@ -335,7 +335,7 @@ def ridge_decisions(models: dict, traded_cp: pd.DataFrame, years) -> pd.DataFram
 
 
 def apply_exit_targets(daily: pd.DataFrame, decisions: pd.DataFrame, rule: str) -> pd.DataFrame:
-    """Zero V3's targets from each exit close to the end of that episode."""
+    """Zero the signal's targets from each exit close to the end of that episode."""
     d = build_episodes(daily).sort_values(["pair_id", "fold_id", "date"]).reset_index(drop=True)
     d["k"] = d.groupby("ep").cumcount()
     hit = decisions.loc[decisions[rule]].sort_values("checkpoint").drop_duplicates("ep_key")
